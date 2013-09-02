@@ -1,6 +1,6 @@
-please define environment variable\n
-export DATA=/path/to/data\n
-export VSCHON=/path/to/VSCHON\n
+please define environment variable
+export DATA=/path/to/data
+export VSCHON=/path/to/VSCHON
 
-export PYTHONPATH=$PYTHONPATH:$VSCHON/VA_PYTHON\n
+export PYTHONPATH=$PYTHONPATH:$VSCHON/VA_PYTHON
 
