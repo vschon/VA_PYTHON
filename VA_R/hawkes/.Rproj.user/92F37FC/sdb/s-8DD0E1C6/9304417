@@ -1,0 +1,15 @@
+{
+    "contents" : "library(forecast)\n\n#option 1: Directly operate on price data\n#transfer the trainingset into regular time series\nregular_trainingset=array(0,c(301,1));\nn=dim(trainingset)[1];\ncount=0;\nfor(i in 0:300)\n{\n    for(j in 1:n)\n    {\n        if(trainingset[j,1]==i)\n        {\n            regular_trainingset[i+1,1]=trainingset[j,2];\n            break;\n        }\n        if(trainingset[j,1]>i)\n        {\n            regular_trainingset[i+1,1]=trainingset[j-1,2];\n            break;\n        }\n    }\n}\nregular_trainingset[301,1]=trainingset[n,2];\nts_reg_traingset=ts(regular_trainingset,start=1,end=301)\n\n#fit arima model to the regular training set\nfit=auto.arima(ts_reg_traingset)\nplot(forecast(fit,h=300))\n\n",
+    "created" : 1369163560657.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3298528301",
+    "id" : "9304417",
+    "lastKnownWriteTime" : 1368568148,
+    "path" : "~/Dropbox/Vschon/R_Analysis_Framework/Hawkes_Process/arima_compare.R",
+    "properties" : {
+    },
+    "source_on_save" : false,
+    "type" : "r_source"
+}

@@ -1,0 +1,15 @@
+{
+    "contents" : "library(alabama)\n#Code for monte carlo simulation using sythetic data\n\n#Simulate an upward trend\n#Set parameters\nmu<-array(c(0.12,0.12),dim=c(2,1));\nalpha<-array(c(0.1,0.2,0.2,0),dim=c(2,2));\nbeta<-array(c(1,1,1,1),dim=c(2,2));\nT=7200;\nscale<-0.01;\n\n#Simulate the 500 seonds sythetic price movement y\n#set.seed(2)\n# x<-MultivariateHawkesSimulation(mu,alpha,beta,T);\n# price=PriceSimulation(x);\n# \n# #Delete repeated time\n# n=dim(price)[1]\n# price=price[-(n-2):-n,]\n# \n# plot(price[,2]~price[,1],type='s',xlab='seconds',ylab='Price');\n\n#Divide the sythetic price into training set and testing set\n#Traing set: T/2 seonds\n#Testing set: T/2 seconds\ntrainingset=price[price[,1]<=T/2,]\ntestingset=price[price[,1]>T/2]\n\n#divide the price into positive movement and negativement\ntrainingset_decomposed=PriceDecomposition(trainingset)\n\n#Learn the parameters of the Hawkes process\n#Set initial estimation of parameters\n# mu_0<-array(c(0.5,0.5),dim=c(2,1));\n# alpha_0<-array(c(0.2,0.5,0.2,0.5),dim=c(2,2));\n# beta_0<-array(c(1,1),dim=c(2,1));\n# theta<-c(mu_0,alpha_0,beta_0);\n# par<-constrOptim.nl(par=theta,fn=BiHawkesLikelihood_beta_fixed,hin=MLEhin,control.outer=list(trace=FALSE),\n#                     control.optim=list(trace=FALSE,fnscale=-0.01),points=trainingset_decomposed);\n# #print(par)\n# mu_estimate=array(par$par[1:2],dim=c(2,1))\n# alpha_estimate=array(par$par[3:6],dim=c(2,2))\n# beta_estimate=array(c(1,1,1,1),dim=c(2,2))\n\n\n#Use the estimated parameters to do monte carlo simulation\n#T=300;\nloop=1;\nsamplepaths=matrix(nrow=10000,ncol=loop)\nfor(i in 1:loop)\n{\n    sim1<-MultivariateHawkesSimulation(mu_estimate,alpha_estimate,beta_estimate,\n                                       T/2,trainingset_decomposed);\n    price1=PriceSimulation(sim1);\n    n=dim(price1)[1]\n    for(j in 1:n)\n    {\n        samplepaths[j,i]=price1[j,2]\n    }\n \n    if(i==1)\n    {\n        plot(price1[,2]~price1[,1],type='s',xlab='seconds',ylab='Price',xlim=c(0,7200),ylim=c(99,101));\n        par(new=TRUE)\n    }\n    plot(price1[,2]~price1[,1],type='s',axes=FALSE,xlab='',ylab='',xlim=c(0,7200),ylim=c(99,101));\n    par(new=TRUE)\n}\n",
+    "created" : 1369163358474.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "495648586",
+    "id" : "CEB6E737",
+    "lastKnownWriteTime" : 1369162915,
+    "path" : "~/Dropbox/Vschon/R_Analysis_Framework/Hawkes_Process/SytheticMonteCarlo.R",
+    "properties" : {
+    },
+    "source_on_save" : false,
+    "type" : "r_source"
+}

@@ -1,0 +1,24 @@
+Loading required package: numDeriv
+This is forecast 4.06 
+
+There were 50 or more warnings (use warnings() to see the first 50)
+> proc.time()
+     user    system   elapsed 
+11345.978     7.845 11366.850 
+ arima -> optim
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Execution halted
+rder),  :
+  possible convergence problem: optim gave code = 1
+> proc.time()
+    user   system  elapsed 
+2773.308    0.311 2774.394 
+arima(dprice[0:(i - ahead)], order = c(arOrder, 0, maOrder),  :
+  possible convergence problem: optim gave code = 1
+5: In arima(dprice[0:(i - ahead)], order = c(arOrder, 0, maOrder),  :
+  possible convergence problem: optim gave code = 1
+6: In arima(dprice[0:(i - ahead)], order = c(arOrder, 0, maOrder),  :
+  possible convergence problem: optim gave code = 1
+> proc.time()
+    user   system  elapsed 
+3091.321    0.092 3092.088 

@@ -1,0 +1,15 @@
+{
+    "contents" : "goog_simresult=array(0,dim=c(500,1))\nfor(i in 1:500)\n{\n    for(j in 1:1000)\n    {\n        if(is.na(goog_samplepaths[j,i]))\n        {\n            goog_simresult[i,1]=goog_samplepaths[j-1,i]\n            break\n        }\n    }\n}",
+    "created" : 1369163533887.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3599178721",
+    "id" : "A3C8B3C",
+    "lastKnownWriteTime" : 1368587257,
+    "path" : "~/Dropbox/Vschon/R_Analysis_Framework/Hawkes_Process/goog_misc.R",
+    "properties" : {
+    },
+    "source_on_save" : false,
+    "type" : "r_source"
+}

@@ -1,0 +1,13 @@
+#PBS -N arimapred
+#PBS -q monkeys
+#PBS -o arimapred.output.${AHEAD} 
+#PBS -j oe
+#PBS -m abe
+#PBS -l nodes=1:ppn=2
+#PBS -l walltime=10:00:00
+
+echo ${AHEAD}
+echo ${STEP}
+echo ${OFILE}
+cd $PBS_O_WORKDIR
+R CMD BATCH --slave "--args ${AHEAD\} ${STEP} ${OFILE}" arimapred.R
