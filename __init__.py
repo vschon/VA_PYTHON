@@ -1,3 +1,7 @@
 import performanceeval
-import vadatamanage
+import datamanage
+
+
+reload(performanceeval)
+reload(datamanage)
 
