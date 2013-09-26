@@ -19,6 +19,7 @@ CalculateHistoryRate<-function(t,tType,mu,alpha,beta,total_index){
   }
   return (tRate)
 }
+
 BivariateHawkesLambdaValue<-function(time,total_index,t,tType,tRate,mu,alpha,beta)
 {
 #   browser() 
