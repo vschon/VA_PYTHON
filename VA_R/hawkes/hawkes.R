@@ -2,8 +2,8 @@
 library(compiler)
 library(alabama)
 
-dyn.load('~/data/va_R/hawkes/CalculateRMatrix_C.so')
-source('~/data/va_R/tsutil/tsutil.R')
+dyn.load('CalculateRMatrix_C.so')
+source('tsutil.R')
 ####Simulation####
 CalculateHistoryRate<-function(t,tType,mu,alpha,beta,total_index){
 #   browser()
@@ -48,7 +48,7 @@ BivariateHawkesLambdaValue<-function(time,total_index,t,tType,tRate,mu,alpha,bet
 #______________________________________________________________________________
 BivariateHawkesSimulation<-function(dataNumber,mu,alpha,beta,history=list(),historyRateProvided=FALSE)
 {
-#   browser() 
+  # browser() 
   
   #simulate a bivariate hawkes process(dataNumber points) given the history events
   #mu:            background intensity M x 1 matrix
@@ -285,7 +285,6 @@ Price_MCSimulation_BivariateHawkes<-function(dataNumber,mu,alpha,beta,sampleNum,
 
 BivariateHawkesLikelihood<-function(theta,points)
 {
-  
   #To calculate the lkelihood value given certain parameters, with beta fixed
   
   #Set the beta value to be 1
@@ -298,7 +297,6 @@ BivariateHawkesLikelihood<-function(theta,points)
   
   #points:    list 1: total time(Nx1 matrix), 
   #           list 2: time of subprocesses
-  
   t<-points[[1]]; 
   t1<-points[[2]];
   t2<-points[[3]];
