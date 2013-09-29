@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 from datetime import timedelta
 from scipy.optimize import minimize
+import getR
 import ipdb
 
 #utility function
@@ -36,7 +37,6 @@ def df2np(raw):
     #remove items with no price change
     return (newValue[newValue[:,1] != 0],anchor)
 
-
 def np2df(data,anchor,ticksize = 0.0001):
     '''
     convert to np representation to df price sequence
@@ -50,7 +50,8 @@ def np2df(data,anchor,ticksize = 0.0001):
 
 
 class simulator:
-    def __init__(self,theta):
+
+    def __init__(self,theta=(0.5,0.5,0.5,0.5,0.5,0.5,1,1)):
         self.mu = np.array(theta[:2]).reshape(2,1)
         self.alpha = np.array(theta[2:6]).reshape(2,2)
         self.beta = np.array(theta[6:]).reshape(2,1)
@@ -84,7 +85,6 @@ class simulator:
             else:
                 data[i,2:4] = (ratevalue + self.alpha[:,1].reshape(2,1)).reshape(2)
         return data
-
 
     def simulate(self,dataNum=10,history=pd.DataFrame()):
         if history.shape[0] == 0:
@@ -120,8 +120,6 @@ class simulator:
             subIndex2 = sum(historydata[:,1] == -1.0)
 
             data = np.append(historydata,np.zeros((dataNum,4)),axis=0)
-
-            #s = data[totalIndex,0]
             endIndex = dataNum + totalIndex + 1
 
         #general routine
@@ -157,6 +155,7 @@ class simulator:
             price = np2df(data[-dataNum:,:2],anchor)
             return price,data
 
+
 def getR11(N,beta1,pos):
     R11 = np.zeros((N,1))
     for i in range(1,N):
@@ -177,7 +176,6 @@ def getR12(N,M,beta1,pos,neg):
 
 def getR21(N,M,beta2,pos,neg):
     R21 = np.zeros((M,1))
-
     for j in range(1,M):
         tempsum=0.0
         for i in range(N):
@@ -200,7 +198,7 @@ def likelihood(theta,data):
     Calculate the likelihood of hawkes model given theta and data
     data is the np decomposed representation of data
     '''
-    print theta
+
     mu = np.array(theta[:2]).reshape(2,1)
     alpha = np.array(theta[2:6]).reshape(2,2)
     #Fix beta to be [1,1,1,1]
@@ -213,11 +211,10 @@ def likelihood(theta,data):
     M = neg.shape[0]
     T = data[-1,0]
 
-    R11 = getR11(N,beta[0,0],pos)
-    R12 = getR12(N,M,beta[0,0],pos,neg)
-    R21 = getR21(N,M,beta[1,0],pos,neg)
-    R22 = getR22(M,beta[1,0],neg)
-
+    R11 = getR.getR11(N,beta[0,0],pos)
+    R12 = getR.getR12(N,M,beta[0,0],pos,neg)
+    R21 = getR.getR21(N,M,beta[1,0],pos,neg)
+    R22 = getR.getR22(M,beta[1,0],neg)
 
     L1 = -mu[0,0]*T -(alpha[0,0]/beta[0,0])*np.sum(1-np.exp(-beta[0,0]*(T-pos))) -\
             (alpha[0,1]/beta[0,0])*np.sum(1-np.exp(-beta[0,0]*(T-neg))) +\
@@ -227,8 +224,8 @@ def likelihood(theta,data):
             (alpha[1,1]/beta[1,0])*np.sum(1-np.exp(-beta[1,0]*(T-neg))) +\
             np.sum(np.log(mu[1,0]+alpha[1,0]*R21[1:]+alpha[1,1]*R22[1:]))
 
-    print (-L1-L2)
     return -L1-L2
+
 
 def gradient(theta,data):
 
@@ -244,10 +241,10 @@ def gradient(theta,data):
     M = neg.shape[0]
     T = data[-1,0]
 
-    R11 = getR11(N,beta[0,0],pos)
-    R12 = getR12(N,M,beta[0,0],pos,neg)
-    R21 = getR21(N,M,beta[1,0],pos,neg)
-    R22 = getR22(M,beta[1,0],neg)
+    R11 = getR.getR11(N,beta[0,0],pos)
+    R12 = getR.getR12(N,M,beta[0,0],pos,neg)
+    R21 = getR.getR21(N,M,beta[1,0],pos,neg)
+    R22 = getR.getR22(M,beta[1,0],neg)
 
     gmu1 = -T + np.sum(1/(mu[0,0]+alpha[0,0]*R11[1:]+alpha[0,1]*R12[1:]))
     gmu2 = -T + np.sum(1/(mu[1,0]+alpha[1,0]*R21[1:]+alpha[1,1]*R22[1:]))
@@ -266,6 +263,7 @@ def gradient(theta,data):
 
     return -np.array([gmu1,gmu2,galpha11,galpha12,galpha21,galpha22])
 
+
 def learn(price,theta=(0.5,0.5,0.25,0.25,0.25,0.25)):
     '''
     Learn the params using mle
@@ -273,7 +271,7 @@ def learn(price,theta=(0.5,0.5,0.25,0.25,0.25,0.25)):
     data,anchor = df2np(price)
     data[:,0] = np.cumsum(data[:,0])
     theta = np.array(theta)
-    constraint = [(0.0001,1),(0.0001,1),(0.0001,1),(0.0001,1),(0.0001,1),(0.0001,1)]
+    constraint = [(0.00001,1),(0.00001,1),(0.00001,1),(0.00001,1),(0.00001,1),(0.00001,1)]
 
     return minimize(fun=likelihood,x0=theta,jac=gradient,bounds=constraint,args=(data,),method='L-BFGS-B')
 
@@ -294,6 +292,9 @@ class predictor:
         self.params = np.array(theta)
         self.fitted = True
 
+    def changeHistory(self,history_):
+        self.history = history_
+
     def predict(self,refit=False,ahead = 1,density=10,mcNum = 500):
         if refit == True or self.fitted == False:
             params =learn(self.history).values()[4]
@@ -311,16 +312,5 @@ class predictor:
             priceforecast += predictionSeries.values[forecastIndex,1]
         priceforecast /= mcNum
         output = pd.DataFrame({'time':[targetTime],'price':[priceforecast]},columns = ['time','price'])
-        #output.index = output['time']
         return output
-
-
-
-
-
-
-
-
-
-
 
