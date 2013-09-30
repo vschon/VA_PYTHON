@@ -3,6 +3,8 @@ import numpy as np
 cimport numpy as np
 from libc.math cimport exp
 
+#Use cython to calculate R matrix
+
 def getR11(long N,double beta1,np.ndarray[np.float64_t, ndim=2] pos):
     cdef np.ndarray[np.float64_t, ndim = 2] R11 = np.zeros((N,1),dtype = np.float64)
     cdef int i

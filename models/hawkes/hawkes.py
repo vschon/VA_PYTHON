@@ -2,8 +2,11 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from datetime import timedelta
+from dateutil.parser import parse
 from scipy.optimize import minimize
 import getR
+import os
+import VD_KDB as vd
 import ipdb
 
 #utility function
@@ -273,8 +276,13 @@ def learn(price,theta=(0.5,0.5,0.25,0.25,0.25,0.25)):
     theta = np.array(theta)
     constraint = [(0.00001,1),(0.00001,1),(0.00001,1),(0.00001,1),(0.00001,1),(0.00001,1)]
 
-    return minimize(fun=likelihood,x0=theta,jac=gradient,bounds=constraint,args=(data,),method='L-BFGS-B')
-
+    #learn scale
+    temp  = np.diff(price.values[:,1])
+    scale = np.mean(np.abs(temp[temp!=0]))
+    #learn params
+    params = minimize(fun=likelihood,x0=theta,jac=gradient,bounds=constraint,args=(data,),method='L-BFGS-B')
+    result = {'scale':scale,'params':params}
+    return result
 
 class predictor:
     '''
@@ -284,7 +292,7 @@ class predictor:
     def __init__(self,history_,theta=()):
         self.history = history_
         self.fitted = False
-        if len(theta) != 0:
+        if theta.shape[0] != 0:
             self.params = np.array(theta)
             self.fitted = True
 
@@ -295,7 +303,7 @@ class predictor:
     def changeHistory(self,history_):
         self.history = history_
 
-    def predict(self,refit=False,ahead = 1,density=10,mcNum = 500):
+    def predict(self,refit=False,ahead = 1,density=30,mcNum = 500):
         if refit == True or self.fitted == False:
             params =learn(self.history).values()[4]
             self.setparam(params)
@@ -305,7 +313,7 @@ class predictor:
         sim = simulator(theta = theta)
         priceforecast = 0.0
         for i in range(mcNum):
-            predictionSeries = sim.simulate(dataNum=10,history = self.history)[0]
+            predictionSeries = sim.simulate(dataNum= (ahead*density),history = self.history)[0]
             predictionSeries = pd.concat([self.history.tail(2),predictionSeries])
             predictionSeries.index = predictionSeries['time']
             forecastIndex = predictionSeries.index.searchsorted(targetTime) - 1
@@ -313,4 +321,82 @@ class predictor:
         priceforecast /= mcNum
         output = pd.DataFrame({'time':[targetTime],'price':[priceforecast]},columns = ['time','price'])
         return output
+
+
+class forex_backtestor:
+
+    def __init__(self,qconn):
+        self.qconn = qconn
+        self.price = pd.DataFrame()
+        self.trainBegin = None
+        self.trainEnd = None
+        self.testBegin = None
+        self.testEnd = None
+        self.symbol = None
+        self.date = None
+        self.ahead = 1
+        self.window = timedelta(0,300)
+
+        self.scale = 0.0
+        self.params = None
+
+    def summary(self):
+        print 'SYMBOL: ' + self.symbol
+        print 'Training Set: ' + str(self.trainBegin) + ' to ' + str(self.trainEnd)
+        print 'Testing Set: ' + str(self.testBegin) + ' to ' + str(self.testEnd)
+        print 'Moving window: ' + str(self.window)
+
+    def setqconn(self, qconn):
+        self.qconn =  qconn
+
+    def fetch(self,date,symbol):
+        command = 'select time,price:bid from forex_quote where date= ' + date +',symbol = `' + symbol.upper()
+        self.symbol = symbol
+        self.price = vd.pyapi.qtable2df(self.qconn.k(command))
+        self.price.index = self.price['time']
+        return self.price
+
+    def split(self,trainBegin,trainEnd,testBegin,testEnd,timewindow):
+        self.trainBegin = parse(trainBegin)
+        self.trainEnd= parse(trainEnd)
+        self.window = timedelta(0,timewindow)
+        self.testBegin = parse(testBegin)
+        self.testEnd = parse(testEnd)
+
+    def backtest(self,args = {},params = {}):
+        '''
+        args:
+            date - date for backtest
+            symbol - symbol for backtest
+            trainBegin,trainEnd,testBegin,testEnd - string, range of training and testing set
+            window - time window of hisotry to make prediction
+            ahead - seconds looking ahead
+        '''
+
+        if len(args) != 0:
+            self.fetch(args['date'],args['symbol'])
+            self.split(args['trainBegin'],args['trainEnd'],args['testBegin'],args['testEnd'],args['window'])
+            self.ahead = args['ahead']
+
+        if len(params) == 0:
+            result = learn(self.price[self.trainBegin:self.trainEnd])
+            self.scale = result['scale']
+            self.params = result['params']['x']
+        else:
+            self.scale = params['scale']
+            self.params = params['params']
+
+        p = predictor(history_ = None, theta = self.params)
+        for i,row in self.price['time'].iteritems():
+            historyBegin = row.to_datetime() - self.window
+            p.changeHistory(self.price[historyBegin:row])
+            output = p.predict(ahead = self.ahead)
+            print output
+
+
+
+
+
+
+
 
