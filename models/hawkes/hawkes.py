@@ -7,6 +7,7 @@ from scipy.optimize import minimize
 import getR
 import os
 import VD_KDB as vd
+import VA_PYTHON as va
 import ipdb
 
 #utility function
@@ -54,15 +55,27 @@ def np2df(data,anchor,ticksize = 0.0001):
 
 class simulator:
 
-    def __init__(self,theta=(0.5,0.5,0.5,0.5,0.5,0.5,1,1)):
+    def __init__(self,theta=(0.5,0.5,0.5,0.5,0.5,0.5,1,1),scale = 0.001):
         self.mu = np.array(theta[:2]).reshape(2,1)
         self.alpha = np.array(theta[2:6]).reshape(2,2)
         self.beta = np.array(theta[6:]).reshape(2,1)
+        self.scale = scale
+        self.history = pd.DataFrame()
+        self.rateCalculated = False
+        self.historydata = None
+        self.anchor = None
 
-    def setparam(self,theta):
+    def setparam(self,theta,scale):
         self.mu = np.array(theta[:2]).reshape(2,1)
         self.alpha = np.array(theta[2:6]).reshape(2,2)
         self.beta = np.array(theta[6:]).reshape(2,1)
+        self.scale = scale
+
+    def sethistory(self,history = pd.DataFrame()):
+        self.history = history
+        if self.history.shape[0] != 0:
+            self.historydata,self.anchor = df2np(self.history)
+            self.historydata = self.historyrate(self.historydata)
 
     def rate(self,time,prev_index,data):
         '''
@@ -87,15 +100,16 @@ class simulator:
                 data[i,2:4] = (ratevalue + self.alpha[:,0].reshape(2,1)).reshape(2)
             else:
                 data[i,2:4] = (ratevalue + self.alpha[:,1].reshape(2,1)).reshape(2)
+        self.rateCalculated = True
         return data
 
-    def simulate(self,dataNum=10,history=pd.DataFrame()):
-        if history.shape[0] == 0:
+    def simulate(self,dataNum=10):
+        if self.history.shape[0] == 0:
             totalIndex = -1
             subIndex1 =0
             subIndex2 =0
             maxIntensity = np.sum(self.mu)
-            anchor = np.array([datetime.now(),0.0])
+            self.anchor = np.array([datetime.now(),0.0])
             #first event
             s = np.random.exponential(1/maxIntensity)
             data = np.zeros((dataNum,4))
@@ -116,13 +130,11 @@ class simulator:
             endIndex = dataNum
         else:
             #if history is provided, continue simulation after history
-            historydata,anchor = df2np(history)
-            historydata = self.historyrate(historydata)
-            totalIndex = historydata.shape[0]-1
-            subIndex1 = sum(historydata[:,1] == 1.0)
-            subIndex2 = sum(historydata[:,1] == -1.0)
+            totalIndex = self.historydata.shape[0]-1
+            subIndex1 = sum(self.historydata[:,1] == 1.0)
+            subIndex2 = sum(self.historydata[:,1] == -1.0)
 
-            data = np.append(historydata,np.zeros((dataNum,4)),axis=0)
+            data = np.append(self.historydata,np.zeros((dataNum,4)),axis=0)
             endIndex = dataNum + totalIndex + 1
 
         #general routine
@@ -151,11 +163,11 @@ class simulator:
                 else:
                     maxIntensity = intensity_s
                     cum_s += s
-        if history.shape[0] == 0:
-            price = np2df(data,anchor)
+        if self.history.shape[0] == 0:
+            price = np2df(data,self.anchor,self.scale)
             return price,data
         else:
-            price = np2df(data[-dataNum:,:2],anchor)
+            price = np2df(data[-dataNum:,:2],self.anchor,self.scale)
             return price,data
 
 
@@ -196,14 +208,21 @@ def getR22(M,beta2,neg):
     return R22
 
 
-def likelihood(theta,data):
+def likelihood(theta,data,modelType):
     '''
     Calculate the likelihood of hawkes model given theta and data
     data is the np decomposed representation of data
     '''
 
-    mu = np.array(theta[:2]).reshape(2,1)
-    alpha = np.array(theta[2:6]).reshape(2,2)
+    if modelType == '6':
+        mu = np.array(theta[:2]).reshape(2,1)
+        alpha = np.array(theta[2:6]).reshape(2,2)
+    if modelType == '4':
+        mu = np.array([theta[0],theta[0]]).reshape(2,1)
+        alpha = np.array([theta[2],theta[3],theta[3],theta[2]]).reshape(2,2)
+    if modelType == '2cross':
+        mu = np.array([theta[0],theta[0]]).reshape(2,1)
+        alpha = np.array([0.0,theta[3],theta[3],0.0]).reshape(2,2)
     #Fix beta to be [1,1,1,1]
     beta = np.ones((2,1))
     pos = data[data[:,1] == 1.0,0].reshape(-1,1)
@@ -230,10 +249,18 @@ def likelihood(theta,data):
     return -L1-L2
 
 
-def gradient(theta,data):
+def gradient(theta,data,modelType):
 
-    mu = np.array(theta[:2]).reshape(2,1)
-    alpha = np.array(theta[2:6]).reshape(2,2)
+    if modelType == '6':
+        mu = np.array(theta[:2]).reshape(2,1)
+        alpha = np.array(theta[2:6]).reshape(2,2)
+    if modelType == '4':
+        mu = np.array([theta[0],theta[0]]).reshape(2,1)
+        alpha = np.array([theta[2],theta[3],theta[3],theta[2]]).reshape(2,2)
+    if modelType == '2cross':
+        mu = np.array([theta[0],theta[0]]).reshape(2,1)
+        alpha = np.array([0.0,theta[3],theta[3],0.0]).reshape(2,2)
+
     beta = np.ones((2,1))
 
     pos = data[data[:,1] == 1.0,0].reshape(-1,1)
@@ -267,7 +294,7 @@ def gradient(theta,data):
     return -np.array([gmu1,gmu2,galpha11,galpha12,galpha21,galpha22])
 
 
-def learn(price,theta=(0.5,0.5,0.25,0.25,0.25,0.25)):
+def learn(price,theta=(0.5,0.5,0.25,0.25,0.25,0.25),modelType = '6'):
     '''
     Learn the params using mle
     '''
@@ -280,8 +307,21 @@ def learn(price,theta=(0.5,0.5,0.25,0.25,0.25,0.25)):
     temp  = np.diff(price.values[:,1])
     scale = np.mean(np.abs(temp[temp!=0]))
     #learn params
-    params = minimize(fun=likelihood,x0=theta,jac=gradient,bounds=constraint,args=(data,),method='L-BFGS-B')
-    result = {'scale':scale,'params':params}
+    args = (data,modelType)
+    output = minimize(fun=likelihood,x0=theta,jac=gradient,bounds=constraint,args=args,method='L-BFGS-B')
+    params = output['x']
+
+    if modelType == '4':
+        params[1] = params[0]
+        params[4] = params[3]
+        params[5] = params[2]
+    if modelType == '2cross':
+        params[1] = params[0]
+        params[2] = 0.0
+        params[5] = 0.0
+        params[4] = params[3]
+
+    result = {'scale':scale,'params':params,'output':output}
     return result
 
 class predictor:
@@ -289,31 +329,38 @@ class predictor:
     hawkes predictor class for learning and preditction
     '''
 
-    def __init__(self,history_,theta=()):
+    def __init__(self,history_,theta = np.array([]), scale = 0.001,modelType = '6'):
         self.history = history_
         self.fitted = False
+        self.scale = scale
+        self.modelType = modelType
         if theta.shape[0] != 0:
             self.params = np.array(theta)
             self.fitted = True
 
-    def setparam(self,theta):
+    def setparam(self,theta,scale):
         self.params = np.array(theta)
+        self.scale = scale
         self.fitted = True
 
     def changeHistory(self,history_):
         self.history = history_
 
-    def predict(self,refit=False,ahead = 1,density=30,mcNum = 500):
+    def predict(self,refit=False,ahead = 1,density=30,mcNum = 500,modelType = '6'):
         if refit == True or self.fitted == False:
-            params =learn(self.history).values()[4]
-            self.setparam(params)
+            self.modelType = modelType
+            result =learn(self.history,modelType = self.modelType )
+            params = result['params']
+            scale = result['scale']
+            self.setparam(params,scale)
         theta = np.append(self.params,np.ones(2))
         targetTime = self.history.values[-1,0] + timedelta(0,ahead)
 
-        sim = simulator(theta = theta)
+        sim = simulator(theta = theta,scale = self.scale)
+        sim.sethistory(self.history)
         priceforecast = 0.0
         for i in range(mcNum):
-            predictionSeries = sim.simulate(dataNum= (ahead*density),history = self.history)[0]
+            predictionSeries = sim.simulate(dataNum= (ahead*density))[0]
             predictionSeries = pd.concat([self.history.tail(2),predictionSeries])
             predictionSeries.index = predictionSeries['time']
             forecastIndex = predictionSeries.index.searchsorted(targetTime) - 1
@@ -332,6 +379,8 @@ class forex_backtestor:
         self.trainEnd = None
         self.testBegin = None
         self.testEnd = None
+        self.train = pd.DataFrame()
+        self.test = pd.DataFrame()
         self.symbol = None
         self.date = None
         self.ahead = 1
@@ -362,6 +411,8 @@ class forex_backtestor:
         self.window = timedelta(0,timewindow)
         self.testBegin = parse(testBegin)
         self.testEnd = parse(testEnd)
+        self.train = self.price[self.trainBegin:self.trainEnd]
+        self.test = self.price[self.testBegin:self.testEnd]
 
     def backtest(self,args = {},params = {}):
         '''
@@ -379,19 +430,48 @@ class forex_backtestor:
             self.ahead = args['ahead']
 
         if len(params) == 0:
-            result = learn(self.price[self.trainBegin:self.trainEnd])
+            result = learn(self.train)
             self.scale = result['scale']
             self.params = result['params']['x']
         else:
             self.scale = params['scale']
             self.params = params['params']
 
+        backtest_result = {'true':np.zeros((self.test.shape[0],1)),'predict':np.zeros((self.test.shape[0],1))}
+
         p = predictor(history_ = None, theta = self.params)
-        for i,row in self.price['time'].iteritems():
-            historyBegin = row.to_datetime() - self.window
-            p.changeHistory(self.price[historyBegin:row])
-            output = p.predict(ahead = self.ahead)
-            print output
+        count = 0
+        for i,row in self.test['time'].iteritems():
+            historyEnd = row.to_datetime()
+            historyBegin = historyEnd -  self.window
+            history = self.price[historyBegin:historyEnd]
+            targetTime = historyEnd + timedelta(0,self.ahead)
+
+            p.changeHistory(history)
+
+            prediction = p.predict(ahead = self.ahead)
+            predict_change = prediction.values[0,1] - self.price.ix[historyEnd,'price']
+
+            historyEndIndex = self.price.index.searchsorted(historyEnd)
+            nextTime = self.price.ix[historyEndIndex+1]['time']
+
+            if nextTime > targetTime:
+                #if no tick change within prediction period, use the next tick change as the true value
+                truevalue = self.price.ix[nextTime.to_datetime(),'price']
+            else:
+                #if there is tick change, use the last one as true price
+                targetTimeIndex = self.price.index.searchsorted(targetTime)
+                truevalue = self.price.ix[targetTimeIndex-1,'price']
+
+            true_change = truevalue - self.price.ix[historyEnd,'price']
+            #ipdb.set_trace()
+            backtest_result['true'][count,0] = true_change
+            backtest_result['predict'][count,0] = predict_change
+            count += 1
+            print true_change,predict_change
+
+        return backtest_result
+
 
 
 
