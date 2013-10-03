@@ -483,7 +483,6 @@ def hawkesfeat(timeseries,args):
     Generate hawkes feature: positive rate/negtive rate
     args['params']: 1X8 ndarray containing the params of hawkes process
     '''
-    ipdb.set_trace()
 
     #Assign parameters
     params = args['params'] if 'params' in args.keys() else np.array([0.2,0.2, 0.2, 0.7, 0.7, 0.2, 1.0, 1.0])
@@ -511,17 +510,3 @@ def hawkesfeat(timeseries,args):
     rateseries = rateseries.reindex(timeseries.index,method = 'ffill')
 
     return rateseries
-
-
-    rateseries = timeseries.copy(deep=True)
-    rateseries['quantity'] = rate
-    rateseries.index = rateseries['time']
-
-    return rateseries
-
-
-
-
-
-
-
