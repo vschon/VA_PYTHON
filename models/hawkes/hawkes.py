@@ -31,10 +31,15 @@ def df2np(raw):
     output:
         ndarray with col time(begin with 0), price mark, rate +, rate -
     '''
+    #ipdb.set_trace()
     #transform time to seconds beginning at t=0
     value = raw.values
-    n = value.shape[0]-1
-    anchor = value[n]
+    anchor = value[-1]
+
+    # get index of entires with no price change
+    index = np.where((value[1:,1]==value[0:-1,1])==True)
+    value = np.delete(value,index,0)
+    n = value.shape[0] - 1
     newValue = np.append(np.diff(value,axis=0),np.zeros((n,2)),axis = 1)
     newValue[:,0] = Vdelta2second(newValue[:,0])
     newValue[:,1] = np.sign(newValue[:,1])
@@ -50,7 +55,7 @@ def np2df(data,anchor,ticksize = 0.0001):
     value[:,0] = Vsecond2delta(value[:,0])
     value[:,1] = value[:,1] * ticksize
     value = value + anchor
-    return pd.DataFrame(value,columns=['time','price'])
+    return pd.DataFrame(value,columns=['time','quantity'])
 
 
 class simulator:
@@ -72,6 +77,7 @@ class simulator:
         self.scale = scale
 
     def sethistory(self,history = pd.DataFrame()):
+        #ipdb.set_trace()
         self.history = history
         if self.history.shape[0] != 0:
             self.historydata,self.anchor = df2np(self.history)
@@ -366,7 +372,7 @@ class predictor:
             forecastIndex = predictionSeries.index.searchsorted(targetTime) - 1
             priceforecast += predictionSeries.values[forecastIndex,1]
         priceforecast /= mcNum
-        output = pd.DataFrame({'time':[targetTime],'price':[priceforecast]},columns = ['time','price'])
+        output = pd.DataFrame({'time':[targetTime],'quantity':[priceforecast]},columns = ['time','quantity'])
         return output
 
 
@@ -399,7 +405,7 @@ class forex_backtestor:
         self.qconn =  qconn
 
     def fetch(self,date,symbol):
-        command = 'select time,price:bid from forex_quote where date= ' + date +',symbol = `' + symbol.upper()
+        command = 'select time,quantity:bid from forex_quote where date= ' + date +',symbol = `' + symbol.upper()
         self.symbol = symbol
         self.price = vd.pyapi.qtable2df(self.qconn.k(command))
         self.price.index = self.price['time']
@@ -450,20 +456,20 @@ class forex_backtestor:
             p.changeHistory(history)
 
             prediction = p.predict(ahead = self.ahead)
-            predict_change = prediction.values[0,1] - self.price.ix[historyEnd,'price']
+            predict_change = prediction.values[0,1] - self.price.ix[historyEnd,'quantity']
 
             historyEndIndex = self.price.index.searchsorted(historyEnd)
             nextTime = self.price.ix[historyEndIndex+1]['time']
 
             if nextTime > targetTime:
                 #if no tick change within prediction period, use the next tick change as the true value
-                truevalue = self.price.ix[nextTime.to_datetime(),'price']
+                truevalue = self.price.ix[nextTime.to_datetime(),'quantity']
             else:
                 #if there is tick change, use the last one as true price
                 targetTimeIndex = self.price.index.searchsorted(targetTime)
-                truevalue = self.price.ix[targetTimeIndex-1,'price']
+                truevalue = self.price.ix[targetTimeIndex-1,'quantity']
 
-            true_change = truevalue - self.price.ix[historyEnd,'price']
+            true_change = truevalue - self.price.ix[historyEnd,'quantity']
             #ipdb.set_trace()
             backtest_result['true'][count,0] = true_change
             backtest_result['predict'][count,0] = predict_change
@@ -472,7 +478,46 @@ class forex_backtestor:
 
         return backtest_result
 
+def hawkesfeat(timeseries,args):
+    '''
+    Generate hawkes feature: positive rate/negtive rate
+    args['params']: 1X8 ndarray containing the params of hawkes process
+    '''
+    ipdb.set_trace()
 
+    #Assign parameters
+    params = args['params'] if 'params' in args.keys() else np.array([0.2,0.2, 0.2, 0.7, 0.7, 0.2, 1.0, 1.0])
+
+    #Utilize the rate calculation function in the hawkes simulator
+    sim = simulator(theta = params)
+    sim.sethistory(timeseries)
+
+
+    rate = sim.historydata[:,2]/sim.historydata[:,3]
+    rate = np.insert(rate,0,params[0]/params[1]).reshape(-1,1)
+    time = np.insert(sim.historydata[:,0],0,0.0).reshape(-1,1)
+    time = np.cumsum(time,axis=0)
+
+    value = np.hstack((time,rate))
+    value = value.astype(object,copy=False)
+    value[:,0] = Vsecond2delta(value[:,0])
+
+    anchor = timeseries.values[0]
+    anchor[1] = 0.0
+    value = value + anchor
+
+    rateseries = pd.DataFrame(value,columns=['time','quantity'])
+    rateseries.index = rateseries['time']
+    rateseries = rateseries.reindex(timeseries.index,method = 'ffill')
+
+    return rateseries
+
+
+    rateseries = timeseries.copy(deep=True)
+    rateseries['quantity'] = rate
+    rateseries.index = rateseries['time']
+
+    return rateseries
 
 
 
