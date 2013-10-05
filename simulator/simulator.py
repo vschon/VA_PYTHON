@@ -2,9 +2,12 @@ import numpy as np
 import pandas as pd
 import VA_PYTHON as va
 import VD_KDB as vd
+from VA_PYTHON.datamanage.datahandler import Sender
 from collections import defaultdict
 import datetime as dt
 from time import strptime
+from dateutil import rrule
+from dateutil.parser import parse
 import types
 import ipdb
 
@@ -50,11 +53,19 @@ class simulator():
         elif unit == 'd':
             self.timeunit = dt.timedelta(value)
 
+        #record the time within each day
         self.currentTime = dt.datetime.now()
         self.beginTimeDelta = dt.timedelta(0,0,0)
         self.endTimeDelta = dt.timedelta(0,0,0)
         self.begintime = None
         self.endtime = None
+
+        #The date range for simulation
+        self.begindatetime = None
+        self.enddatetime = None
+
+        #Data handler to disptach data
+        self.sender = Sender()
 
     def statuscheck(self):
         '''
@@ -62,15 +73,24 @@ class simulator():
         '''
         self.ready = True
 
-        if len(self.data) == 0:
+        if len(self.datalist) == 0:
             self.ready = False
-            print 'data not ready'
+            print 'Data list  not specified'
+        elif self.begindatetime == None or self.enddatetime == None:
+            self.ready = False
+            print 'Simulation date range not set'
+        else:
+            print self.datalist
+            print 'Simulation starts on ' + self.begindatetime.strftime('%Y.%m.%d %H:%M:%S') + ' to ' + self.enddatetime.strftime('%Y.%m.%d %H:%M:%S')
+            print 'initialization successful'
 
     def setActiveTimeDelta(self,begintime,endtime):
         '''
         set the active time range of each day.
         simulation will begin from the begintime and finish at the endtime
+        begintime,endtime are string
         '''
+
         begintime = strptime(begintime)
         endtime = strptime(endtime)
 
@@ -125,7 +145,7 @@ class simulator():
 
         legalname = set()
         for element in self.datalist:
-            set.add(element['name'])
+            legalname.add(element['name'])
 
         for name in set(namelist):
             if name in legalname:
@@ -135,13 +155,26 @@ class simulator():
                 self.dayfreqdatalist = []
                 break
 
+    def setdaterange(self,begindatetime,enddatetime):
+        '''
+        the begindatetime and enddatetime specify the range of time of each day to send out data
+        if only date given for begindatetime and enddatetime,
+        the defaul start and end time would be 00:00:00 on the specified data
+        '''
+        self.begindatetime = parse(begindatetime)
+        self.enddatetime = parse(enddatetime)
+
     def emptydatalist(self):
         self.datalist = []
 
     def replaceData(self,date):
         '''
         replace 1 day data into simulator for dispatch
+        if input date in a datetime instance, it should be converted to string
         '''
+        if isinstance(date,dt.datetime):
+            date = date.strftime("%Y.%m.%d")
+
         for element in self.datalist:
             self.data[element['name']] = self.dataloader.tickerload(symbol = element['name'],source = element['source'],begindate = date)
 
@@ -153,24 +186,33 @@ class simulator():
             self.data[daydata][:self.begintime].index = self.begintime
             self.data[daydata][self.endtime].index = self.endtime
 
+    def subscribe(self,hooks = []):
+        '''
+        hook is the list of listen method of listeners
+        Sender will call the hook method to send out message
+        '''
 
-    def dispatch(self):
+        if len(hooks) != 0:
+            for hook in hooks:
+                self.sender.register(hook)
 
-        #self.combineandsort()
+
+    def broadcast(self):
 
         while self.currentTime <= self.endtime:
+            for data in self.data:
+                slice = data[self.currentTime]
+                for i,row in slice:
+                    self.sender.dispatch(msg = row)
 
             self.currentTime += self.timeunit
             print self.currentTime
 
-    def simulate(self,begindate,enddate,begintime,endtime):
+    def simulate(self):
 
         '''
         for each day from begindate to enddate,
         load the data and dispatch it to registered strategies
-
-        the begintime and endtime specify the range of time of each day to send out data
-
         if the data loaded include timestamps outside of the tima range,
         to be modified
         '''
@@ -179,10 +221,32 @@ class simulator():
         if self.ready == False:
             return -1
 
-        for date in range(4):
+        daterange = [rrule.rrule(rrule.DAILY,dtstart = self.begindatetime,until = self.enddatetime)]
+
+        for date in daterange:
             self.replaceData(date)
             self.updateActiveTime(date)
             self.processDayFreqData()
             self.dispatch()
 
 
+if __name__ == '__main__':
+    print 'demonstrating event system'
+
+    sim = simulator()
+
+    ####Initialization####
+
+    #1. set data list
+    sim.setdatalist(('forex_quote-usdjpy',))
+
+    #2. set day frequency data
+    sim.setDayFreqDataList()
+
+    #3. set simulation date range
+    sim.setdaterange('2013.08.01','2013.08.03')
+
+    #3. check status
+    sim.statuscheck()
+
+    #3. example strategy
