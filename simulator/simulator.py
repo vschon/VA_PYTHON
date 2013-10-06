@@ -54,9 +54,8 @@ class simulator():
             self.timeunit = dt.timedelta(value)
 
         #record the time within each day
-        self.currentTime = dt.datetime.now()
         self.beginTimeDelta = dt.timedelta(0,0,0)
-        self.endTimeDelta = dt.timedelta(0,0,0)
+        self.endTimeDelta = dt.timedelta(hours=23,minutes = 59,seconds = 59, microseconds = 999)
         self.begintime = None
         self.endtime = None
 
@@ -82,6 +81,7 @@ class simulator():
         else:
             print self.datalist
             print 'Simulation starts on ' + self.begindatetime.strftime('%Y.%m.%d %H:%M:%S') + ' to ' + self.enddatetime.strftime('%Y.%m.%d %H:%M:%S')
+            print 'Daily active time from ' + (dt.datetime(2000,1,1) + self.beginTimeDelta).strftime('%H:%M:%S') + ' to ' + (dt.datetime(2000,1,1) + self.endTimeDelta).strftime('%H:%M:%S')
             print 'initialization successful'
 
     def setActiveTimeDelta(self,begintime,endtime):
@@ -91,8 +91,9 @@ class simulator():
         begintime,endtime are string
         '''
 
-        begintime = strptime(begintime)
-        endtime = strptime(endtime)
+        begintime = strptime(begintime,'%H:%M:%S')
+        endtime = strptime(endtime,'%H:%M:%S')
+
 
         self.beginTimeDelta = dt.timedelta(hours= begintime.tm_hour,minutes = begintime.tm_min, seconds = begintime.tm_sec)
         self.endTimeDelta = dt.timedelta(hours= endtime.tm_hour,minutes = endtime.tm_min, seconds = endtime.tm_sec)
@@ -196,17 +197,24 @@ class simulator():
             for hook in hooks:
                 self.sender.register(hook)
 
+    def listListeners(self):
+        '''
+        display all listeners to this simulator
+        '''
+        print self.sender.listeners
+
 
     def broadcast(self):
 
+        self.currentTime = self.begintime
         while self.currentTime <= self.endtime:
-            for data in self.data:
-                slice = data[self.currentTime]
-                for i,row in slice:
-                    self.sender.dispatch(msg = row)
+            for name,data in self.data.items():
+                slice = data[self.currentTime:self.currentTime]
+                if slice.shape[0] != 0:
+                    for i,row in slice.iterrows():
+                        self.sender.dispatch(msg = row)
 
             self.currentTime += self.timeunit
-            print self.currentTime
 
     def simulate(self):
 
@@ -221,13 +229,13 @@ class simulator():
         if self.ready == False:
             return -1
 
-        daterange = [rrule.rrule(rrule.DAILY,dtstart = self.begindatetime,until = self.enddatetime)]
+        daterange = list(rrule.rrule(rrule.DAILY,dtstart = self.begindatetime,until = self.enddatetime))
 
         for date in daterange:
             self.replaceData(date)
             self.updateActiveTime(date)
             self.processDayFreqData()
-            self.dispatch()
+            self.broadcast()
 
 
 if __name__ == '__main__':
@@ -246,7 +254,14 @@ if __name__ == '__main__':
     #3. set simulation date range
     sim.setdaterange('2013.08.01','2013.08.03')
 
-    #3. check status
+    #4. set simulation active time range
+    sim.setActiveTimeDelta('00:00:00','08:00:00')
+
+    #5. check status
     sim.statuscheck()
 
-    #3. example strategy
+    #6. example strategy
+    john = va.datamanage.datahandler.ExampleListener('john')
+    sim.subscribe(hooks = [john.method,])
+
+    sim.simulate()
