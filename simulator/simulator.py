@@ -88,7 +88,7 @@ class simulator():
         '''
         set the active time range of each day.
         simulation will begin from the begintime and finish at the endtime
-        begintime,endtime are string
+        begintime,endtime are string %H:%M:%S
         '''
 
         begintime = strptime(begintime,'%H:%M:%S')
@@ -205,6 +205,10 @@ class simulator():
 
 
     def broadcast(self):
+        '''
+        the function to send out the messages
+        the msg format is:{'time':self.currentTime,'data':row}
+        '''
 
         self.currentTime = self.begintime
         while self.currentTime <= self.endtime:
@@ -212,7 +216,7 @@ class simulator():
                 slice = data[self.currentTime:self.currentTime]
                 if slice.shape[0] != 0:
                     for i,row in slice.iterrows():
-                        self.sender.dispatch(msg = row)
+                        self.sender.dispatch(msg = {'time':self.currentTime,'data':row})
 
             self.currentTime += self.timeunit
 
@@ -232,9 +236,20 @@ class simulator():
         daterange = list(rrule.rrule(rrule.DAILY,dtstart = self.begindatetime,until = self.enddatetime))
 
         for date in daterange:
+            '''
+            simulate day by day
+            '''
+
+            #load new data into simulator
             self.replaceData(date)
+
+            #set active time, include detailed date for active time
             self.updateActiveTime(date)
+
+            #process lower frequency data for simulation
             self.processDayFreqData()
+
+            #send out messages
             self.broadcast()
 
 
@@ -261,7 +276,9 @@ if __name__ == '__main__':
     sim.statuscheck()
 
     #6. example strategy
-    john = va.datamanage.datahandler.ExampleListener('john')
-    sim.subscribe(hooks = [john.method,])
+    trader = va.strategy.hawkes.hawkes.hawkesTrader()
+    trader.setMode('sim','forexquote')
+    trader.setthreshold(3)
+    sim.subscribe(hooks = [trader.filter,])
 
     sim.simulate()
