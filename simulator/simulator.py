@@ -55,11 +55,19 @@ class simDataLoader():
 
         return self.load(command)
 
-class simOrderManager()
+class simExchange():
    '''
-   Receive orders from trader, maintain portforlio of a trader and calculate profit/loss
+   Receive orders from trader
    '''
 
+
+
+   pass
+
+class simPortfolio():
+    '''
+    simulated portfolio
+    '''
 
 
 class newsimulator():
@@ -90,6 +98,8 @@ class newsimulator():
 
         self.traderLoader = va.strategy.tradermanage.TraderLoader()
         self.trader = None
+
+        self.marketValue = pd.DataFrame()
 
     def setdatalist(self,datalist):
         '''
@@ -156,6 +166,8 @@ class newsimulator():
                        'beginTime':beginDate + self.cycleBeginTimeDelta,
                        'endTime':beginDate + OneDayDelta + self.cycleEndTimeDelta}
             self.cycles.append(element)
+
+        #Initializing
 
 
     def replaceData(self,cycle):

@@ -1,6 +1,0 @@
-This is forecast 4.06 
-
-Loading required package: numDeriv
-> proc.time()
-     user    system   elapsed 
-35047.620    19.709 35099.415 

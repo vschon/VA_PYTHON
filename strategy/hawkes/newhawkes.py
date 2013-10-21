@@ -116,6 +116,7 @@ class hawkesTrader():
         '''
         while self.now >= self.PendingExit[0]['time']:
             #Order(self.PendingExit)
+            print 'close positions'
             self.PendingExit.pop(0)
             pass
 
@@ -130,10 +131,10 @@ class hawkesTrader():
             if self.stateUpdated == True:
                 if self.currentState['rate'] > self.threshold:
                     self.PendingExit.append({'time':self.now + self.exitdelta,'type': -1})
-                    print 'buy'
+                    print 'long open'
                 elif self.currentState['rate'] < 1/self.thresold:
                     self.PendingExit.append({'time':self.now + self.exitdelta,'type': 1})
-                    print 'sell'
+                    print 'short open'
                 self.stateUpdated = False
 
 
