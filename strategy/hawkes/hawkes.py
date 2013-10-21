@@ -62,6 +62,10 @@ class hawkesTrader():
         set the corresponding data filter
         sim - simulation mode
         real - real trading mode
+
+        set the filter used to receive data
+
+        set the data
         '''
 
         if mode == 'sim':
