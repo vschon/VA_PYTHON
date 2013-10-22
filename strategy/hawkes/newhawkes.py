@@ -16,6 +16,9 @@ class hawkesTrader():
     '''
 
     def __init__(self):
+
+        self.name = 'hawkes_trader'
+
         #initialize the state
         self.currentState = {'time':None,
                       'price':None,
@@ -34,6 +37,7 @@ class hawkesTrader():
         #now: object to store current time
         self.now = None
 
+        self.OrderManagerLoader = OrderManagerLibrary()
         self.orderManager = None
 
         self.a11 = 0.1
@@ -54,6 +58,8 @@ class hawkesTrader():
         self.DailyStopTime = None
 
 
+    def setname(self,tradername):
+        self.name = tradername
 
     def setfilter(self,filtername):
         '''
@@ -89,6 +95,12 @@ class hawkesTrader():
         '''
 
         self.DailyStopTime = DailyStopTime
+
+    def setOrderManager(self,orderManager):
+        '''
+        set the object to send orders
+        '''
+        self.orderManager = self.OrderManagerLoader.OrderManagerLoader(orderManager)
 
 
     def updatestate(self, point):
@@ -131,6 +143,7 @@ class hawkesTrader():
             if self.stateUpdated == True:
                 if self.currentState['rate'] > self.threshold:
                     self.PendingExit.append({'time':self.now + self.exitdelta,'type': -1})
+                    self.orderManager.SendOrder()
                     print 'long open'
                 elif self.currentState['rate'] < 1/self.thresold:
                     self.PendingExit.append({'time':self.now + self.exitdelta,'type': 1})
@@ -167,7 +180,7 @@ class FilterLibrary():
         self.filterlibrary['forex_quote'] = forex_quoteFilter()
 
     def filterLoader(self,filter):
-        if filter in self.filterLoader.keys():
+        if filter in self.filterlibrary.keys():
             return self.filterlibrary[filter]
         else:
             return -1
@@ -210,4 +223,47 @@ class forex_quoteFilter():
 
 
 #Order manager for hawkes trader
-#Order manager is the interface between trader and broker
+#Order manager is the interface between trader and broker/simulator
+
+class OrderManagerLibrary():
+    def __init__(self):
+        self.OrderManagerLibrary = {}
+        self.OrderManagerLibrary['sim'] = simOrderManager()
+
+    def OrderManagerLoader(self,orderManager):
+        if orderManager in self.OrderManagerLibrary.keys():
+            return self.OrderManagerLibrary[orderManager]
+        else:
+            return -1
+            print 'No order manager' + orderManager + 'in the filter library'
+
+
+class simOrderManager():
+
+    def __init__(self):
+        self.idcounter = 0
+        self.time = None
+        self.simReceiver = None
+
+    def getTraderTime(self,trader):
+        self.time = trader.now
+
+    def setSimulator(self,simulatorReceiver):
+        '''
+        Set the function of simulator to receive order
+        '''
+        self.simReceiver = simulatorReceiver
+
+    def SendOrder(self,direction,open,symbol,orderType,number):
+        self.getTraderTime()
+        order = va.simulator.simulator.generateSimOrder(id = self.idcounter,
+                                                        time = self.time,
+                                                        direction = direction,
+                                                        open = open,
+                                                        orderType = 'MARKET',
+                                                        number = number)
+        self.simReceiver(order)
+
+
+
+
