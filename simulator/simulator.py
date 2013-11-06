@@ -56,13 +56,9 @@ class simDataLoader():
         return self.load(command)
 
 
-class simPortfolio():
-    '''
-    simulated portfolio
-    '''
-    pass
-
-def generateSimOrder(id,time,direction,open,symbol,orderType,number,limit_price=0):
+def generateSimOrder(id,time,direction,open,
+                     symbol,orderType,number,
+                     limit_price=0):
     '''
     id:             order ID
     time:           dt.datetime
@@ -93,7 +89,10 @@ class newsimulator():
         #data = {'name':data,'name':data}
         self.data = defaultdict()
 
-        #market: hold data in pd dataframe type
+        #IMDB is the in memory database to be sent to trader
+        self.IMDB = defaultdict()
+
+        #market: hold data in pd dataframe type, used for transaction matching
         self.market = defaultdict()
 
         #Store symbol to be sent out ['source-symbol']
@@ -115,26 +114,27 @@ class newsimulator():
         self.traderLoader = va.strategy.tradermanage.TraderLoader()
         self.trader = None
 
-        self.marketValue = pd.DataFrame()
+        self.portfolioManager = None
 
 
-    def setdatalist(self,datalist):
+    def setdatalist(self, datalist):
         '''
         fill datalist in a convenient way
 
         input:
             datalist: tuple of ('forex_quote-usdjpy','source-symbol')
+
         output:
             list of dict
             self.datalist:[{'name':symbol,'source':source},...]
         '''
 
         if type(datalist) is not types.TupleType and type(datalist) is not list:
-            datalist = (datalist,)
+            datalist = (datalist, )
 
         for SourceSymbol in datalist:
             try:
-                [source,symbol] = SourceSymbol.split('-')
+                [source, symbol] = SourceSymbol.split('-')
                 temp = {}
                 temp['name'] = symbol
                 temp['source'] = source
@@ -149,14 +149,14 @@ class newsimulator():
     def emptydatalist(self):
         self.datalist = []
 
-    def setCycle(self,begindate,enddate,begintime,endtime):
+    def setCycle(self, begindate, enddate, begintime, endtime):
         '''
         parse the begin datetime and end datetime
         generate self.cycle based on input
         '''
 
-        begintime = strptime(begintime,'%H:%M:%S')
-        endtime = strptime(endtime,'%H:%M:%S')
+        begintime = strptime(begintime, '%H:%M:%S')
+        endtime = strptime(endtime, '%H:%M:%S')
 
         OneDayDelta = dt.timedelta(0)
 
@@ -186,8 +186,21 @@ class newsimulator():
 
         #Initializing
 
+    def MarketOrderProcessor(self,order):
+        '''
+        processor for market order
+        '''
+
+        #query price based on time
+        #Time = order time + delay
+        #Get the price as time
+        #
+        #
+        pass
+
 
     def replaceData(self,cycle):
+
         '''
         replace 1 cycle data into simulator for dispatch
         '''
@@ -212,14 +225,18 @@ class newsimulator():
         else:
             print 'trader name not in trader library!'
 
-    def SimulatorReceiver(self, order):
+    def OrderProcessor(self, order):
 
         '''
         receive order from trader and  maintain daily portfolio
         '''
 
+        if order['type'] == 'MARKET':
+            self.MarketOrderProcessor(order)
+        elif order['type'] == 'LIMIT':
+            #TODO: limit order processor to be implemented
+            pass
 
-        pass
 
     def simulate(self):
 

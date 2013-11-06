@@ -91,7 +91,7 @@ class hawkesTrader():
     def setStopTime(self,DailyStopTime):
         '''
         set daily stop time
-        trader will open new positions afte stop time
+        trader will not open new positions afte stop time
         '''
 
         self.DailyStopTime = DailyStopTime
