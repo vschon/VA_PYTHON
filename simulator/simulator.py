@@ -83,7 +83,11 @@ class simulator():
 
     def __init__(self):
 
+        #used to load data from kdb
         self.dataloader = simDataLoader()
+
+        #used to get the order matcher from order matcher library
+        self.orderMatchLibrary = va.simulator.ordermatcher.orderMatcherLibrary()
 
         #hdb: holds data from different datasource in df type
         #hdb = {'name':data,'name':data}
@@ -104,6 +108,9 @@ class simulator():
         #store the match between trader symbol and market symbol
         #key:symbol value:int - index of market data
         self.symbolpair = defaultdict()
+
+        #store the order matcher for each market data
+        self.matcherlist = defaultdict()
 
         #testing cycle config
         self.cycleBeginDate = None
@@ -160,6 +167,8 @@ class simulator():
     def setMarketList(self,marketlist):
         '''
         choose the data used for transaction matching
+        set the order matched based on market data source
+
         input: list of index in datalist
         '''
 
@@ -167,6 +176,13 @@ class simulator():
             marketlist = (marketlist,)
 
         self.marketlist = [self.datalist[i] for i in marketlist]
+
+        #set the corresponding order matcher
+        for marketdata in self.marketlist:
+            self.matcherlist[marketdata['name']] = self.orderMatchLibrary.orderMatcherLoader(marketdata['source'])
+
+
+
 
     def matchSymbol(self,pairs):
         '''
@@ -181,10 +197,10 @@ class simulator():
             pairs = (pairs,)
         for pair in pairs:
             [symbol,index] = pair.split('-')
-            self.symbolpair[symbol] = int(index)
+            self.symbolpair[symbol] = self.datalist[int(index)]['name']
 
 
-    def setCycle(self, begindate, enddate, begintime, endtime):
+    def setCycle(self, begindate, begintime, enddate, endtime):
         '''
         parse the begin datetime and end datetime
         generate self.cycle based on input
@@ -228,6 +244,7 @@ class simulator():
         replace 1 cycle data into simulator for dispatch
         '''
 
+        #updating hdb and imdb
         for element in self.datalist:
             beginDate = cycle['beginDate'].strftime('%Y.%m.%d')
             endDate = cycle['endDate'].strftime('%Y.%m.%d')
@@ -238,6 +255,10 @@ class simulator():
             self.hdb[element['name']] = temp
             #transfer into list of tuples
             self.IMDB[element['name']] = list(temp.itertuples())
+
+        #updating market data
+        for element in self.marketlist:
+            self.market[element['name']] = self.hdb[element['name']]
 
     def setTrader(self,trader):
         '''
@@ -254,13 +275,14 @@ class simulator():
         callback function to receive order from trader
         '''
 
+        #translate order symbol into market symbol
+        order['symbol'] = self.symbolpair[order['symbol']]
 
+        temp = order['symbol']
 
-        if order['type'] == 'MARKET':
-            self.MarketOrderProcessor(order)
-        elif order['type'] == 'LIMIT':
-            #TODO: limit order processor to be implemented
-            pass
+        #match trade
+        trade =  self.matcherlist[temp].match(order,self.market[temp])
+
 
 
     def simulate(self):
@@ -296,22 +318,24 @@ class simulator():
 if __name__ == '__main__':
     print 'demonstrating event system'
 
+    #1. create simulator
     sim = simulator()
 
     ####Initialization####
 
-    #1. set data list
+    #2. set data list
     sim.setdatalist(('forex_quote-usdjpy','forex_quote-eurusd'))
 
-    #2. set market list
+    #3. set market list
+    #4. set order matcher for each market data
     #set the 1,2 element in datalist as market list
     sim.setMarketList((0,1))
 
-    #3. Match trader symbol and market symbol
+    #5. Set order matcher for each market data
     sim.matchSymbol('usdjpy-0','uerusd-1')
 
     #4. set cycles
-    sim.setCycle('2013.08.01','2013.08.31','18:00:00','02:00:00')
+    sim.setCycle('2013.08.01','18:00:00','2013.08.31','02:00:00')
 
     #3. set traders
     sim.setTrader('hawkes')
