@@ -1,3 +1,5 @@
 import simulator
-reload(simulator)
+import ordermatcher
 
+reload(simulator)
+reload(ordermatcher)

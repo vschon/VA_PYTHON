@@ -79,15 +79,15 @@ def generateSimOrder(id,time,direction,open,
             'limit_price':  limit_price}
 
 
-class newsimulator():
+class simulator():
 
     def __init__(self):
 
         self.dataloader = simDataLoader()
 
-        #data: holds data from different datasource in list type
-        #data = {'name':data,'name':data}
-        self.data = defaultdict()
+        #hdb: holds data from different datasource in df type
+        #hdb = {'name':data,'name':data}
+        self.hdb = defaultdict()
 
         #IMDB is the in memory database to be sent to trader
         self.IMDB = defaultdict()
@@ -95,8 +95,15 @@ class newsimulator():
         #market: hold data in pd dataframe type, used for transaction matching
         self.market = defaultdict()
 
-        #Store symbol to be sent out ['source-symbol']
+        #Store HDB data list
         self.datalist = []
+
+        #Store market data list
+        self.marketlist = []
+
+        #store the match between trader symbol and market symbol
+        #key:symbol value:int - index of market data
+        self.symbolpair = defaultdict()
 
         #testing cycle config
         self.cycleBeginDate = None
@@ -115,6 +122,7 @@ class newsimulator():
         self.trader = None
 
         self.portfolioManager = None
+        self.portfolio = None
 
 
     def setdatalist(self, datalist):
@@ -148,6 +156,33 @@ class newsimulator():
 
     def emptydatalist(self):
         self.datalist = []
+
+    def setMarketList(self,marketlist):
+        '''
+        choose the data used for transaction matching
+        input: list of index in datalist
+        '''
+
+        if type(marketlist) is not types.TupleType and type(marketlist) is not list:
+            marketlist = (marketlist,)
+
+        self.marketlist = [self.datalist[i] for i in marketlist]
+
+    def matchSymbol(self,pairs):
+        '''
+        match the symbol sent from trader and the symbol in the market data
+
+        input:
+            symbol: list of symbol pair
+                    ['ABC-0','DEF-1']
+        '''
+
+        if type(pairs) is not types.TupleType and type(pairs) is not list:
+            pairs = (pairs,)
+        for pair in pairs:
+            [symbol,index] = pair.split('-')
+            self.symbolpair[symbol] = int(index)
+
 
     def setCycle(self, begindate, enddate, begintime, endtime):
         '''
@@ -186,18 +221,6 @@ class newsimulator():
 
         #Initializing
 
-    def MarketOrderProcessor(self,order):
-        '''
-        processor for market order
-        '''
-
-        #query price based on time
-        #Time = order time + delay
-        #Get the price as time
-        #
-        #
-        pass
-
 
     def replaceData(self,cycle):
 
@@ -212,9 +235,9 @@ class newsimulator():
             temp = self.dataloader.tickerload(symbol= element['name'], source = element['source'],begindate = beginDate, enddate = endDate)
             temp = temp[cycle['beginTime']:cycle['endTime']]
 
-            self.market[element['name']] = temp
+            self.hdb[element['name']] = temp
             #transfer into list of tuples
-            self.data[element['name']] = list(temp.itertuples())
+            self.IMDB[element['name']] = list(temp.itertuples())
 
     def setTrader(self,trader):
         '''
@@ -228,8 +251,10 @@ class newsimulator():
     def OrderProcessor(self, order):
 
         '''
-        receive order from trader and  maintain daily portfolio
+        callback function to receive order from trader
         '''
+
+
 
         if order['type'] == 'MARKET':
             self.MarketOrderProcessor(order)
@@ -271,14 +296,21 @@ class newsimulator():
 if __name__ == '__main__':
     print 'demonstrating event system'
 
-    sim = newsimulator()
+    sim = simulator()
 
     ####Initialization####
 
     #1. set data list
     sim.setdatalist(('forex_quote-usdjpy','forex_quote-eurusd'))
 
-    #2. set cycles
+    #2. set market list
+    #set the 1,2 element in datalist as market list
+    sim.setMarketList((0,1))
+
+    #3. Match trader symbol and market symbol
+    sim.matchSymbol('usdjpy-0','uerusd-1')
+
+    #4. set cycles
     sim.setCycle('2013.08.01','2013.08.31','18:00:00','02:00:00')
 
     #3. set traders
