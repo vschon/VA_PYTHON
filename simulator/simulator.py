@@ -179,6 +179,7 @@ class simulator():
         '''
         choose the data used for transaction matching
         set the order matched based on market data source
+        set the delay time of each order mathcer (unit:millisecond)
 
         input: list of index in datalist
         '''
@@ -191,6 +192,22 @@ class simulator():
         #set the corresponding order matcher
         for marketdata in self.marketlist:
             self.matcherlist[marketdata['name']] = self.orderMatchLibrary.orderMatcherLoader(marketdata['source'])
+
+    def setDelayTime(self,delayList):
+        '''
+        set the delay time for each mather
+
+        input:
+            ['usdjpy-3','eurusd-2']
+        '''
+
+        if type(delayList) is not types.TupleType and type(delayList) is not list:
+            delayList = (delayList,)
+
+        for element in delayList:
+            [name, delay] = element.split('-')
+            self.matcherlist[name].delay = int(delay)
+
 
 
     def matchSymbol(self,pairs):
@@ -444,13 +461,17 @@ if __name__ == '__main__':
     #set the 1,2 element in datalist as market list
     sim.setMarketList((0,1))
 
-    #5. match trade symbol and market symbol
+    #5. set delay time for each order matcher
+    sim.setDelayTime(('usdjpy-2','eurusd-2'))
+
+
+    #6. match trade symbol and market symbol
     sim.matchSymbol(['usdjpy-0','eurusd-1'])
 
-    #6. set cycles
+    #7. set cycles
     sim.setCycle('2013.08.01','03:00:00','2013.08.31','10:00:00')
 
-    #6. config portfolio
+    #8. config portfolio
     sim.setcapital(1000000.0)
 
     #3. set traders

@@ -40,6 +40,7 @@ class hawkesTrader():
         self.OrderManagerLoader = OrderManagerLibrary()
         self.orderManager = None
 
+        #set parameters
         self.a11 = 0.1
         self.a22 = 0.6
         self.a21 = 0.6
@@ -49,10 +50,11 @@ class hawkesTrader():
         self.beta1 = 1.0
         self.beta2 = 1.0
         self.threshold = 3.0
+        self.exitseconds = 5.0
 
         #store the pending exit
         self.PendingExit = []
-        self.exitdelta = dt.timedelta(0,5)
+        self.exitdelta = dt.timedelta(0,self.exitseconds)
 
         #trader will not enter into new positions after DailyStopTime
         self.DailyStopTime = None
@@ -102,6 +104,8 @@ class hawkesTrader():
         '''
         self.orderManager = self.OrderManagerLoader.OrderManagerLoader(orderManager)
 
+
+    ############CORE-BEGIN############
 
     def updatestate(self, point):
         #Only price change is processed
@@ -168,6 +172,8 @@ class hawkesTrader():
             if point != -1:
                 self.updatestate(point)
             self.logic()
+
+    ############CORE-END############
 
 
 
