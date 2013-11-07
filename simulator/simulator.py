@@ -125,11 +125,22 @@ class simulator():
         #cycles = [cycle1,cycle2,...]
         self.cycles = []
 
+
         self.traderLoader = va.strategy.tradermanage.TraderLoader()
         self.trader = None
 
-        self.portfolioManager = None
-        self.portfolio = None
+        self.initialcapital = 1000000.0
+
+        #store symbol traded in the portfolio
+        self.portfolioSymbol = set()
+
+        self.portfolio = pd.DataFrame(
+            dict(time=dt.datetime(1990,1,1),symbol='VSCHON',price=np.zeros(100000),
+                 number=np.zeros(100000),direction='long',
+                 open = True,
+                 cash=np.zeros(100000),value=np.zeros(100000)),
+            columns = ['time','symbol','price','number','direction','open','cash','value'])
+        self.tradeIndex = 0
 
 
     def setdatalist(self, datalist):
@@ -182,8 +193,6 @@ class simulator():
             self.matcherlist[marketdata['name']] = self.orderMatchLibrary.orderMatcherLoader(marketdata['source'])
 
 
-
-
     def matchSymbol(self,pairs):
         '''
         match the symbol sent from trader and the symbol in the market data
@@ -192,6 +201,7 @@ class simulator():
             symbol: list of symbol pair
                     ['ABC-0','DEF-1']
         '''
+        #ipdb.set_trace()
 
         if type(pairs) is not types.TupleType and type(pairs) is not list:
             pairs = (pairs,)
@@ -237,6 +247,23 @@ class simulator():
 
         #Initializing
 
+    def setcapital(self,value):
+        '''
+        set the initial value of simulation value
+        defaul to be 1 million
+        '''
+        self.initialcapital = value
+
+
+    def setTrader(self,trader):
+        '''
+        set the trader for simulation
+        '''
+        if trader in self.traderLoader.traderlib.keys():
+            self.trader = self.traderLoader.load(trader)
+        else:
+            print 'trader name not in trader library!'
+
 
     def replaceData(self,cycle):
 
@@ -260,20 +287,104 @@ class simulator():
         for element in self.marketlist:
             self.market[element['name']] = self.hdb[element['name']]
 
-    def setTrader(self,trader):
+    def updatePortfolio(self,trade):
         '''
-        set the trader for simulation
+        update portfolio based on new trades
         '''
-        if trader in self.traderLoader.traderlib.keys():
-            self.trader = self.traderLoader.load(trader)
+        ipdb.set_trace()
+
+        time = trade['time']
+        symbol = trade['symbol']
+        price = trade['price']
+        direction = trade['direction']
+        number = trade['number']
+        open = trade['open']
+
+        mark = 0.0
+        if direction == 'long':
+            mark = 1.0
+        elif direction == 'short':
+            mark = -1.0
+
+        #if symbol not in portfolio, add threee cols - long,short,price
+        if symbol not in self.portfolioSymbol:
+            self.portfolio[symbol + '-long'] = np.zeros(100000)
+            self.portfolio[symbol + '-short'] = np.zeros(100000)
+            self.portfolio[symbol + '-price'] = np.zeros(100000)
+            self.portfolioSymbol.add(symbol)
+
+        if self.tradeIndex == 0:
+            #special case for first trade
+            #update cash
+            self.portfolio['cash'][self.tradeIndex] = self.initialcapital - mark*number*price
+
+            #update traded symbol number
+            if open == True:
+                if direction == 'long':
+                    self.portfolio[symbol + '-long'][self.tradeIndex] = number
+                elif direction == 'short':
+                    self.portfolio[symbol + '-short'][self.tradeIndex] = number
+            elif open == False:
+                if direction == 'short':
+                    self.portfolio[symbol + '-long'][self.tradeIndex] = -number
+                elif direction == 'long':
+                    self.portfolio[symbol + '-short'][self.tradeIndex] = -number
         else:
-            print 'trader name not in trader library!'
+            #for 2nd and after trades
+            #update cash
+            self.portfolio.iloc[self.tradeIndex] = self.portfolio.ix[self.tradeIndex-1]
+            #copy the data of last trade into current line
+            self.portfolio['cash'][self.tradeIndex] = self.portfolio['cash'][self.tradeIndex-1] - mark*number*price
+
+            #update traded symbol number
+            if open == True:
+                if direction == 'long':
+                    self.portfolio[symbol + '-long'][self.tradeIndex] = number + self.portfolio.ix[self.tradeIndex][symbol + '-long']
+                elif direction == 'short':
+                    self.portfolio[symbol + '-short'][self.tradeIndex] = number + self.portfolio.ix[self.tradeIndex][symbol + '-short']
+            elif open == False:
+                if direction == 'short':
+                    self.portfolio[symbol + '-long'][self.tradeIndex] = -number + self.portfolio.ix[self.tradeIndex][symbol + '-long']
+                elif direction == 'long':
+                    self.portfolio[symbol + '-short'][self.tradeIndex] = -number + self.portfolio.ix[self.tradeIndex][symbol + '-short']
+
+        #update traded symbol price
+        self.portfolio[symbol + '-price'][self.tradeIndex] = price
+
+        #update non-traded symbol price
+        #get all symbols that are not traded
+        tempset = set()
+        tempset.add(symbol)
+        tempsym = self.portfolioSymbol.difference(tempset)
+
+        for sym in tempsym:
+            tempprice =  self.matcherlist[sym].singleprice(time,sym,self.market[sym])
+            self.portfolio[sym + '-price'][self.tradeIndex] = tempprice
+
+        #update portfolio value
+        sum = 0.0
+        for sym in self.portfolioSymbol:
+            symnumber = self.portfolio[sym + '-long'][self.tradeIndex] - self.portfolio[sym + '-short'][self.tradeIndex]
+            sum += symnumber * self.portfolio[sym + '-price'][self.tradeIndex]
+        self.portfolio['value'][self.tradeIndex] = sum + self.portfolio['cash'][self.tradeIndex]
+
+        #update transaction time, symbol,price, number, direction and open
+        self.portfolio['time'][self.tradeIndex] = time
+        self.portfolio['symbol'][self.tradeIndex] = symbol
+        self.portfolio['price'][self.tradeIndex] = price
+        self.portfolio['number'][self.tradeIndex] = number
+        self.portfolio['direction'][self.tradeIndex] = direction
+        self.portfolio['open'][self.tradeIndex] = open
+
+        self.tradeIndex += 1
+
 
     def OrderProcessor(self, order):
 
         '''
         callback function to receive order from trader
         '''
+        ipdb.set_trace()
 
         #translate order symbol into market symbol
         order['symbol'] = self.symbolpair[order['symbol']]
@@ -283,6 +394,8 @@ class simulator():
         #match trade
         trade =  self.matcherlist[temp].match(order,self.market[temp])
 
+        if trade != 'NA':
+            self.updatePortfolio(trade)
 
 
     def simulate(self):
@@ -331,11 +444,14 @@ if __name__ == '__main__':
     #set the 1,2 element in datalist as market list
     sim.setMarketList((0,1))
 
-    #5. Set order matcher for each market data
-    sim.matchSymbol('usdjpy-0','uerusd-1')
+    #5. match trade symbol and market symbol
+    sim.matchSymbol(['usdjpy-0','eurusd-1'])
 
-    #4. set cycles
-    sim.setCycle('2013.08.01','18:00:00','2013.08.31','02:00:00')
+    #6. set cycles
+    sim.setCycle('2013.08.01','03:00:00','2013.08.31','10:00:00')
+
+    #6. config portfolio
+    sim.setcapital(1000000.0)
 
     #3. set traders
     sim.setTrader('hawkes')

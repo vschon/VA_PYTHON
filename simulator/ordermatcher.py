@@ -40,12 +40,29 @@ class forex_quote_matcher():
         #delay in milliseconds
         self.delay = dt.timedelta(0,0,0)
 
+    def fetchpoint(self,time,symbol,hdb):
+        '''
+        get point from hdb
+        '''
+        symbolhdb = hdb[hdb['symbol']==symbol.upper()]
+        state = symbolhdb[:time].ix[-1]
+        return state
+
+    def singleprice(self,time,symbol,hdb):
+
+        symbolhdb = hdb[hdb['symbol']==symbol.upper()]
+        state = symbolhdb[:time].ix[-1]
+        price = 0.5*(state['ask'] + state['bid'])
+        return price
+
+
     def marketmatch(self,order,hdb):
+        #ipdb.set_trace()
         transactTime = order['time'] + self.delay
 
         #extract the data of the symbol
-        symbolhdb = hdb[hdb['symbol']==order['symbol'].upper()]
-        state = symbolhdb[:transactTime].ix[-1]
+        state = self.fetchpoint(transactTime,order['symbol'],hdb)
+
         if order['direction'] == 'long':
             transactPrice = state['ask']
         elif order['direction'] == 'short':
@@ -61,7 +78,9 @@ class forex_quote_matcher():
         return trade
 
     def match(self,order,hdb):
+        trade = None
         if order['type'] == 'MARKET':
-            self.marketmatch(order,hdb)
+            trade = self.marketmatch(order,hdb)
         elif order['type'] == 'LIMIT':
             pass
+        return trade
