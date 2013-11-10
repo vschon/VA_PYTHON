@@ -25,7 +25,6 @@ class hawkesTrader():
                       'pos':None,
                       'neg':None,
                       'rate':None}
-
         self.stateUpdated = False
 
         self.filterLoader = FilterLibrary()
@@ -166,7 +165,10 @@ class hawkesTrader():
 
         '''
         while True:
+            #get data
             point = self.filter.fetch()
+            #get time
+
             self.now = self.timer()
 
             if point != -1:
