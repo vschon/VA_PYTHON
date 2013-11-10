@@ -125,13 +125,6 @@ class hawkesTrader():
 
         self.DailyStopTime = DailyStopTime
 
-    def setOrderManager(self,sender):
-        '''
-        set the object to send orders
-        '''
-        self.sender = self.OrderManagerLoader.OrderManagerLoader(sender)
-
-
     ############CORE-BEGIN############
 
     def updatestate(self):
@@ -216,6 +209,7 @@ class hawkesTrader():
 ###########FILTER############
 ### Filters for Hawkes Trader####
 ### Filter is the interface between trader and IMDB
+### Common sim fiilters can be shared by different traders
 
 class forex_quoteFilter():
     '''
@@ -230,7 +224,7 @@ class forex_quoteFilter():
     def setDataSource(self,datasource):
         self.datasource = datasource
 
-    def fetch(self):
+    def fetch_midPrice(self):
         '''
         fetch data from database
 

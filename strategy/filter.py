@@ -7,20 +7,78 @@ from collections import defaultdict
 
 import ipdb
 
-class filter(object):
+class SimFilter(object):
     '''
     virtual class to fetch date from database
     '''
 
     def __init__(self):
+        self.dataSource = None
+        self.counter = 0
+        self.fetch = None
+
+    def setFetcher(self,fetch):
+        '''
+        set fetch function of filter
+        '''
+        if fetch == 'single_price':
+            self.fetch = self.fetch_singlePrice()
+        elif fetch == 'double_price':
+            self.fetch = self.fetch_doublePrice()
+
+    def fetch_singlePrice():
+        '''
+        fetch single price data from database
+
+        return {'time':XX,'price':XX,...}
+        '''
         pass
 
-        #establish connection with database
-        self.conn = vd.pyapi.kdblogin()
+    def fetch_doublePrice():
+        '''
+        fetch ask/bid price data from database
 
-    def fetch():
+        return {'time':XX,'ask':XX,'bid':XX,...}
+        '''
+        pass
+
+
+class forex_quoteFilter(SimFilter):
+    '''
+    filter for forex_quote DB
+    linking to the in memory database
+    '''
+
+    def __init__(self):
+        self.datasource = None
+        self.counter = 0
+        self.fetch = None
+
+    def setDataSource(self,datasource):
+        self.datasource = datasource
+
+    def fetch_singlePrice(self):
         '''
         fetch data from database
+
+        incoming data structure:
+
+        tuple
+        0:time/
+        1:date/
+        2:symbol/
+        3:time/
+        4:bid/
+        5:ask
+
+        return:{'time':XX, 'price':XX}
         '''
-        pass
+
+        point = self.datasource[self.counter]
+        if point[4] != 0:
+            self.counter += 1
+            return {'time':point[0].to_datetime(),'price':(point[4]+point[5])/2.0}
+        else:
+            return -1
+
 
