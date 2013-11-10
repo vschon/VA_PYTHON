@@ -464,7 +464,6 @@ if __name__ == '__main__':
     #5. set delay time for each order matcher
     sim.setDelayTime(('usdjpy-2','eurusd-2'))
 
-
     #6. match trade symbol and market symbol
     sim.matchSymbol(['usdjpy-0','eurusd-1'])
 
@@ -474,8 +473,12 @@ if __name__ == '__main__':
     #8. config portfolio
     sim.setcapital(1000000.0)
 
-    #3. set traders
-    sim.setTrader('hawkes')
+    #9. set traders
+    hawkesTrader = va.strategy.hawkes.newhawkes.hawkesTrader()
+    #9.1 set trader name
+    hawkesTrader.setname('hawkes_trader')
+    hawkesTrader.setsimtimer('2013.08.01 02:59:00')
+    #sim.setTrader('hawkes')
 
     #5. check status
     #sim.statuscheck()

@@ -5,6 +5,7 @@ import VD_KDB as vd
 import datetime as dt
 from collections import defaultdict
 import math
+from dateutil.parser import parse
 
 import ipdb
 
@@ -27,8 +28,10 @@ class hawkesTrader():
                       'rate':None}
         self.stateUpdated = False
 
-        self.filterLoader = FilterLibrary()
+        #if there are multiple filters, self.filter = [] OR self.filter = {}
         self.filter = None
+        #self.filter = {}
+        #self.filter = []
 
         #timer: function to get current time
         self.timer = None
@@ -36,8 +39,10 @@ class hawkesTrader():
         #now: object to store current time
         self.now = None
 
-        self.OrderManagerLoader = OrderManagerLibrary()
-        self.orderManager = None
+        self.sender = {}
+
+        #SIM mode setting
+        self.simIncrementTime = None
 
         #set parameters
         self.a11 = 0.1
@@ -61,6 +66,29 @@ class hawkesTrader():
 
     def setname(self,tradername):
         self.name = tradername
+
+    def setsimtimer(self,initialtime,increment):
+        '''
+        timer used to update time for simulation mode
+
+        beginTime: str,the beginning time of simulation timer
+        increment: int,the smallest increment(in micro-second) of the timer
+        '''
+        self.timer = self.simtimer()
+        self.now = parse(initialtime)
+        self.simIncrementTime = dt.timedelta(0,0,increment)
+
+    def simtimer(self):
+        '''
+        simulation timer
+        '''
+        self.now += self.simIncrementTime
+
+    def realtimer(self):
+        '''
+        real timer
+        '''
+        self.now = dt.datetime.now()
 
     def setfilter(self,filtername):
         '''
@@ -97,16 +125,20 @@ class hawkesTrader():
 
         self.DailyStopTime = DailyStopTime
 
-    def setOrderManager(self,orderManager):
+    def setOrderManager(self,sender):
         '''
         set the object to send orders
         '''
-        self.orderManager = self.OrderManagerLoader.OrderManagerLoader(orderManager)
+        self.sender = self.OrderManagerLoader.OrderManagerLoader(sender)
 
 
     ############CORE-BEGIN############
 
-    def updatestate(self, point):
+    def updatestate(self):
+
+        #REWRITE FETCH FUNCTION
+        point = {}
+
         #Only price change is processed
         if point['price'] != self.currentState['price']:
             delta = (point['time'] - self.currentState['time']).total_seconds()
@@ -153,7 +185,6 @@ class hawkesTrader():
                     print 'short open'
                 self.stateUpdated = False
 
-
     def run(self):
         '''
         every call filter to fetch data from db
@@ -165,15 +196,15 @@ class hawkesTrader():
 
         '''
         while True:
-            #get data
-            point = self.filter.fetch()
-            #get time
+            #update time
+            self.timer()
 
-            self.now = self.timer()
+            #update state
+            self.updatestate()
 
-            if point != -1:
-                self.updatestate(point)
+            #trade based on current state
             self.logic()
+
 
     ############CORE-END############
 
@@ -181,18 +212,7 @@ class hawkesTrader():
 
 
 ### Filters for Hawkes Trader####
-### Filter is the interface between trader and database
-class FilterLibrary():
-    def __init__(self):
-        self.filterlibrary = {}
-        self.filterlibrary['forex_quote'] = forex_quoteFilter()
-
-    def filterLoader(self,filter):
-        if filter in self.filterlibrary.keys():
-            return self.filterlibrary[filter]
-        else:
-            return -1
-            print 'No filter name in the filter library'
+### Filter is the interface between trader and IMDB
 
 class forex_quoteFilter():
     '''
@@ -233,20 +253,7 @@ class forex_quoteFilter():
 #Order manager for hawkes trader
 #Order manager is the interface between trader and broker/simulator
 
-class OrderManagerLibrary():
-    def __init__(self):
-        self.OrderManagerLibrary = {}
-        self.OrderManagerLibrary['sim'] = simOrderManager()
-
-    def OrderManagerLoader(self,orderManager):
-        if orderManager in self.OrderManagerLibrary.keys():
-            return self.OrderManagerLibrary[orderManager]
-        else:
-            return -1
-            print 'No order manager' + orderManager + 'in the filter library'
-
-
-class simOrderManager():
+class simOrderSender():
 
     def __init__(self):
         self.idcounter = 0
@@ -256,11 +263,11 @@ class simOrderManager():
     def getTraderTime(self,trader):
         self.time = trader.now
 
-    def setSimulator(self,simulatorReceiver):
+    def setSimulator(self,simOrderProcessor):
         '''
         Set the function of simulator to receive order
         '''
-        self.simReceiver = simulatorReceiver
+        self.simReceiver = simOrderProcessor
 
     def SendOrder(self,direction,open,symbol,orderType,number):
         self.getTraderTime()
