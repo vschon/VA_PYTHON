@@ -475,9 +475,26 @@ if __name__ == '__main__':
 
     #9. set traders
     hawkesTrader = va.strategy.hawkes.newhawkes.hawkesTrader()
+
     #9.1 set trader name
     hawkesTrader.setname('hawkes_trader')
-    hawkesTrader.setsimtimer('2013.08.01 02:59:00')
+
+    #9.2 set trader timer
+    hawkesTrader.setsimtimer('2013.08.01 02:59:00',500)
+
+    #9.3 set trader sender
+    hawkesTrader.sender = va.strategy.hawkes.newhawkes.simOrderSender()
+
+    #9.4 link simulator and trader
+    hawkesTrader.sender.linkOrderProcessor(sim)
+    hawkesTrader.sender.linkTrader(hawkesTrader)
+
+    #9.5 set trader data filter
+    hawkesTrader.filter = va.strategy.hawkes.newhawkes.forex_quoteFilter()
+
+    #9.6 pass imdb to filter
+
+
     #sim.setTrader('hawkes')
 
     #5. check status

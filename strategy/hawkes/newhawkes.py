@@ -135,9 +135,12 @@ class hawkesTrader():
     ############CORE-BEGIN############
 
     def updatestate(self):
+        '''
+        get data from imdb
+        update state
+        '''
 
-        #REWRITE FETCH FUNCTION
-        point = {}
+        point = self.filter.fetch()
 
         #Only price change is processed
         if point['price'] != self.currentState['price']:
@@ -210,7 +213,7 @@ class hawkesTrader():
 
 
 
-
+###########FILTER############
 ### Filters for Hawkes Trader####
 ### Filter is the interface between trader and IMDB
 
@@ -250,6 +253,7 @@ class forex_quoteFilter():
             return -1
 
 
+##############SENDER#############
 #Order manager for hawkes trader
 #Order manager is the interface between trader and broker/simulator
 
@@ -258,26 +262,27 @@ class simOrderSender():
     def __init__(self):
         self.idcounter = 0
         self.time = None
-        self.simReceiver = None
+        self.trader = None
+        self.simulator = None
 
-    def getTraderTime(self,trader):
-        self.time = trader.now
+    def linkTrader(self,trader):
+        self.trader = trader
 
-    def setSimulator(self,simOrderProcessor):
+    def linkOrderProcessor(self,simOrderProcessor):
         '''
         Set the function of simulator to receive order
         '''
         self.simReceiver = simOrderProcessor
 
     def SendOrder(self,direction,open,symbol,orderType,number):
-        self.getTraderTime()
+        self.time = self.trader.now
         order = va.simulator.simulator.generateSimOrder(id = self.idcounter,
                                                         time = self.time,
                                                         direction = direction,
                                                         open = open,
                                                         orderType = 'MARKET',
                                                         number = number)
-        self.simReceiver(order)
+        self.simulator.OrderProcessor(order)
 
 
 
