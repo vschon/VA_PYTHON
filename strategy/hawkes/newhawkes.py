@@ -5,6 +5,7 @@ import VD_KDB as vd
 import datetime as dt
 from collections import defaultdict
 import math
+import types
 from dateutil.parser import parse
 
 import ipdb
@@ -28,10 +29,10 @@ class hawkesTrader():
                       'rate':None}
         self.stateUpdated = False
 
-        #if there are multiple filters, self.filter = [] OR self.filter = {}
-        self.filter = None
-        #self.filter = {}
-        #self.filter = []
+        #stored the symbols to be sent out by trader
+        self.symbols=[]
+
+        self.filter = []
 
         #timer: function to get current time
         self.timer = None
@@ -39,7 +40,7 @@ class hawkesTrader():
         #now: object to store current time
         self.now = None
 
-        self.sender = {}
+        self.sender = []
 
         #SIM mode setting
         self.simIncrementTime = None
@@ -67,6 +68,15 @@ class hawkesTrader():
     def setname(self,tradername):
         self.name = tradername
 
+    def setsymbols(self,symbols):
+        '''
+        set symbols to be sent out by trader
+        '''
+        if type(symbols) is not types.TupleType and type(symbols) is not list:
+            self.symbols = [symbols,]
+        else:
+            self.symbols = symbols
+
     def setsimtimer(self,initialtime,increment):
         '''
         timer used to update time for simulation mode
@@ -90,12 +100,54 @@ class hawkesTrader():
         '''
         self.now = dt.datetime.now()
 
-    def setfilter(self,filtername):
+    def setsender(self,senders):
         '''
-        set the filter of trader
-        filter name is the name of the table in KDB
+        set the senders for each arm of the trader
         '''
-        self.filter = self.filterLoader.filterLoader[filtername]
+
+        if type(senders) is not types.TupleType and type(senders) is not list:
+            senders = [senders,]
+
+        for sender in senders:
+            temp = None
+            if sender == 'NA':
+                temp = None
+            elif sender == 'sim':
+                try:
+                    temp = simOrderSender()
+                except NameError:
+                    temp = None
+            self.sender.append(temp)
+
+    def setfilter(self,filters):
+        '''
+        set the filter for each arm of trader
+        filter name is the name of the table in DB
+        '''
+        if type(filters) is not types.TupleType and type(filters) is not list:
+            filters = [filters,]
+
+        for filter in filters:
+            temp = None
+            if filter == 'forex_quote':
+                temp = va.strategy.filter.forex_quoteFilter()
+            else:
+                pass
+            self.filter.append(temp)
+
+    def linkimdb(self,imdblist):
+        '''
+        pass imdb to the trader filer
+        input [imdb0,imdb1]
+        imdb1,imdb2 matches self.filter[0] self.filter[1]
+        '''
+
+        if type(imdblist) is not types.TupleType and type(imdblist) is not list:
+            imdblist = [imdblist,]
+
+        for i in range(len(imdblist)):
+            self.filter[i].setDataSource(imdblist[i])
+
 
     def setparams(self,theta):
         '''
@@ -133,7 +185,7 @@ class hawkesTrader():
         update state
         '''
 
-        point = self.filter.fetch()
+        point = self.filter[0].fetch()
 
         #Only price change is processed
         if point['price'] != self.currentState['price']:
@@ -174,7 +226,7 @@ class hawkesTrader():
             if self.stateUpdated == True:
                 if self.currentState['rate'] > self.threshold:
                     self.PendingExit.append({'time':self.now + self.exitdelta,'type': -1})
-                    self.orderManager.SendOrder()
+                    self.sender.SendOrder()
                     print 'long open'
                 elif self.currentState['rate'] < 1/self.thresold:
                     self.PendingExit.append({'time':self.now + self.exitdelta,'type': 1})
@@ -203,48 +255,6 @@ class hawkesTrader():
 
 
     ############CORE-END############
-
-
-
-###########FILTER############
-### Filters for Hawkes Trader####
-### Filter is the interface between trader and IMDB
-### Common sim fiilters can be shared by different traders
-
-class forex_quoteFilter():
-    '''
-    forex filter for hawkes trader
-    linking to the in memory database
-    '''
-
-    def __init__(self):
-        self.datasource = None
-        self.counter = 0
-
-    def setDataSource(self,datasource):
-        self.datasource = datasource
-
-    def fetch_midPrice(self):
-        '''
-        fetch data from database
-
-        incoming data structure:
-
-        tuple
-        0:time/
-        1:date/
-        2:symbol/
-        3:time/
-        4:bid/
-        5:ask
-        '''
-
-        point = self.datasource[self.counter]
-        if point[4] != 0:
-            self.counter += 1
-            return {'time':point[0].to_datetime(),'price':(point[4]+point[5])/2.0}
-        else:
-            return -1
 
 
 ##############SENDER#############

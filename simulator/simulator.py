@@ -100,6 +100,7 @@ class simulator():
         self.market = defaultdict()
 
         #Store HDB data list
+        #market data first, non-markte data last
         self.datalist = []
 
         #Store market data list
@@ -209,7 +210,6 @@ class simulator():
             self.matcherlist[name].delay = int(delay)
 
 
-
     def matchSymbol(self,pairs):
         '''
         match the symbol sent from trader and the symbol in the market data
@@ -217,6 +217,8 @@ class simulator():
         input:
             symbol: list of symbol pair
                     ['ABC-0','DEF-1']
+                    'ABC':symbol sent from trader
+                    0: index of symbol in the seld.datalist
         '''
         #ipdb.set_trace()
 
@@ -479,23 +481,37 @@ if __name__ == '__main__':
     #9.1 set trader name
     hawkesTrader.setname('hawkes_trader')
 
+    #9.2 set symbols list
+    hawkesTrader.setsymbols(['usdjpy','eurusd'])
+
     #9.2 set trader timer
     hawkesTrader.setsimtimer('2013.08.01 02:59:00',500)
 
     #9.3 set trader sender
-    hawkesTrader.sender = va.strategy.hawkes.newhawkes.simOrderSender()
+    hawkesTrader.setsender(['sim','sim'])
 
-    #9.4 link simulator and trader
-    hawkesTrader.sender.linkOrderProcessor(sim)
-    hawkesTrader.sender.linkTrader(hawkesTrader)
+    #9.4 link simulator and trader to sender
+    for item in hawkesTrader.sender:
+        try:
+            item.linkOrderProcessor(sim)
+            item.linkTrader(hawkesTrader)
+        except:
+            #if the sender is None, then pass
+            pass
 
     #9.5 set trader data filter
-    hawkesTrader.filter = va.strategy.hawkes.newhawkes.forex_quoteFilter()
+    hawkesTrader.setfilter(['forex_quote','forex_quote'])
 
-    #9.6 pass imdb to filter
+    #9.6 link trader to filter
+    for item in hawkesTrader.filter:
+        item.linkTrader(hawkesTrader)
 
+    #9.7 set fetch function of filter
+    for item in hawkesTrader.filter:
+        item.setFetcher('single_price')
 
-    #sim.setTrader('hawkes')
+    #9.7 pass imdb to filter
+    hawkesTrader.linkimdb([sim.IMDB['usdjpy'],sim.IMDB['eurusd']])
 
     #5. check status
     #sim.statuscheck()

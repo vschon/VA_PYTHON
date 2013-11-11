@@ -10,12 +10,22 @@ import ipdb
 class SimFilter(object):
     '''
     virtual class to fetch date from database
+    all sim filter should inheritate from class Sim Filter
     '''
 
     def __init__(self):
         self.dataSource = None
         self.counter = 0
         self.fetch = None
+        self.trader = None
+
+    def linkTrader(self,trader):
+        '''
+        pass trader object to filter so filter can get trader time
+        '''
+
+        self.trader = trader
+
 
     def setFetcher(self,fetch):
         '''
@@ -25,6 +35,15 @@ class SimFilter(object):
             self.fetch = self.fetch_singlePrice()
         elif fetch == 'double_price':
             self.fetch = self.fetch_doublePrice()
+        elif fetch == 'fetch':
+            if self.fetch == None:
+                print 'Warning, fetch() in the fileter is None'
+
+    def setDataSource(self,datasource):
+        '''
+        set the data source to be fetched
+        '''
+        self.dataSource = datasource
 
     def fetch_singlePrice():
         '''
@@ -47,15 +66,8 @@ class forex_quoteFilter(SimFilter):
     '''
     filter for forex_quote DB
     linking to the in memory database
+    all sim filter should inheritate from class Sim Filter
     '''
-
-    def __init__(self):
-        self.datasource = None
-        self.counter = 0
-        self.fetch = None
-
-    def setDataSource(self,datasource):
-        self.datasource = datasource
 
     def fetch_singlePrice(self):
         '''
