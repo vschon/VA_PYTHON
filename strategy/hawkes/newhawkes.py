@@ -40,12 +40,12 @@ class hawkesTrader():
         #now: object to store current time
         self.now = None
 
+        #store order senders
         self.sender = []
 
-        #SIM mode setting
         self.simIncrementTime = None
 
-        #set parameters
+        #parameters
         self.a11 = 0.1
         self.a22 = 0.6
         self.a21 = 0.6
@@ -55,15 +55,12 @@ class hawkesTrader():
         self.beta1 = 1.0
         self.beta2 = 1.0
         self.threshold = 3.0
-        self.exitseconds = 5.0
-
-        #store the pending exit
-        self.PendingExit = []
-        self.exitdelta = dt.timedelta(0,self.exitseconds)
-
+        self.exitdelta = dt.timedelta(0,5)
         #trader will not enter into new positions after DailyStopTime
         self.DailyStopTime = None
 
+        #store the pending exit
+        self.PendingExit = []
 
     def setname(self,tradername):
         self.name = tradername
@@ -105,18 +102,12 @@ class hawkesTrader():
         set the senders for each arm of the trader
         '''
 
-        if type(senders) is not types.TupleType and type(senders) is not list:
-            senders = [senders,]
+        senders = va.utils.utils.formlist(senders)
 
         for sender in senders:
             temp = None
-            if sender == 'NA':
-                temp = None
-            elif sender == 'sim':
-                try:
-                    temp = simOrderSender()
-                except NameError:
-                    temp = None
+            if sender == 'sim':
+                temp = simOrderSender()
             self.sender.append(temp)
 
     def setfilter(self,filters):
@@ -135,6 +126,14 @@ class hawkesTrader():
                 pass
             self.filter.append(temp)
 
+    def link_filter_trader(self):
+        '''
+        send trader object to each filter of the trader
+        '''
+
+        for item in self.filter:
+            item.linkTrader(self)
+
     def linkimdb(self,imdblist):
         '''
         pass imdb to the trader filer
@@ -142,8 +141,7 @@ class hawkesTrader():
         imdb1,imdb2 matches self.filter[0] self.filter[1]
         '''
 
-        if type(imdblist) is not types.TupleType and type(imdblist) is not list:
-            imdblist = [imdblist,]
+        imdblist = va.utils.utils.formlist(imdblist)
 
         for i in range(len(imdblist)):
             self.filter[i].setDataSource(imdblist[i])
@@ -168,14 +166,19 @@ class hawkesTrader():
         else:
             print 'K should be larger than 1'
 
-
-    def setStopTime(self,DailyStopTime):
+    def setStopTime(self, DailyStopTime):
         '''
         set daily stop time
         trader will not open new positions afte stop time
         '''
 
-        self.DailyStopTime = DailyStopTime
+        self.DailyStopTime = parse(DailyStopTime)
+
+    def setExitDelta(self, delta):
+        '''
+        set time in seconds to exit an opened positions
+        '''
+        self.exitdelta = dt.timedelta(0, delta)
 
     ############CORE-BEGIN############
 
@@ -205,21 +208,15 @@ class hawkesTrader():
 
             self.stateUpdated = True
 
-    def exitPositions(self):
-        '''
-        exit previous entered positions
-        '''
-        while self.now >= self.PendingExit[0]['time']:
-            #Order(self.PendingExit)
-            print 'close positions'
-            self.PendingExit.pop(0)
-            pass
-
 
     def logic(self):
 
         #Exit existing positions
-        self.exitPositions()
+        while self.now >= self.PendingExit[0]['time']:
+            #Order(self.PendingExit)
+            print 'close positions'
+            self.PendingExit.pop(0)
+
 
         #Enter new positions
         if self.now < self.DailyStopTime:
@@ -261,22 +258,7 @@ class hawkesTrader():
 #Order manager for hawkes trader
 #Order manager is the interface between trader and broker/simulator
 
-class simOrderSender():
-
-    def __init__(self):
-        self.idcounter = 0
-        self.time = None
-        self.trader = None
-        self.simulator = None
-
-    def linkTrader(self,trader):
-        self.trader = trader
-
-    def linkOrderProcessor(self,simOrderProcessor):
-        '''
-        Set the function of simulator to receive order
-        '''
-        self.simReceiver = simOrderProcessor
+class simOrderSender(va.strategy.SimOrderSender.SimOrderSender):
 
     def SendOrder(self,direction,open,symbol,orderType,number):
         self.time = self.trader.now

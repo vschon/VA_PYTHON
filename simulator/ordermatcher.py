@@ -11,24 +11,6 @@ from dateutil.parser import parse
 import types
 import ipdb
 
-class orderMatcherLibrary():
-    '''
-    Used to store and return appropirate order matcher for simulator
-    unique matcher for each data source
-    '''
-    def __init__(self):
-        self.orderMatcherLibrary = set()
-
-        #save matcher for each data source
-        #key of dict is the name of data source
-        self.orderMatcherLibrary.add('forex_quote')
-
-    def orderMatcherLoader(self,matcher):
-        if matcher in self.orderMatcherLibrary:
-            return forex_quote_matcher()
-        else:
-            print 'No ' + matcher + ' name in the filter library'
-            return -1
 
 class forex_quote_matcher():
     '''

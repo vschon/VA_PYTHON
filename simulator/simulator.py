@@ -86,18 +86,14 @@ class simulator():
         #used to load data from kdb
         self.dataloader = simDataLoader()
 
-        #used to get the order matcher from order matcher library
-        self.orderMatchLibrary = va.simulator.ordermatcher.orderMatcherLibrary()
-
         #hdb: holds data from different datasource in df type
-        #hdb = {'name':data,'name':data}
-        self.hdb = defaultdict()
+        self.hdb = []
 
         #IMDB is the in memory database to be sent to trader
-        self.IMDB = defaultdict()
+        self.IMDB = []
 
         #market: hold data in pd dataframe type, used for transaction matching
-        self.market = defaultdict()
+        self.market = []
 
         #Store HDB data list
         #market data first, non-markte data last
@@ -108,10 +104,10 @@ class simulator():
 
         #store the match between trader symbol and market symbol
         #key:symbol value:int - index of market data
-        self.symbolpair = defaultdict()
+        self.symbol_market_pair = defaultdict()
 
         #store the order matcher for each market data
-        self.matcherlist = defaultdict()
+        self.matcher = []
 
         #testing cycle config
         self.cycleBeginDate = None
@@ -150,6 +146,7 @@ class simulator():
 
         input:
             datalist: tuple of ('forex_quote-usdjpy','source-symbol')
+            market data first, non-market data last
 
         output:
             list of dict
@@ -176,38 +173,44 @@ class simulator():
     def emptydatalist(self):
         self.datalist = []
 
-    def setMarketList(self,marketlist):
+    def setMarketList(self,n):
         '''
         choose the data used for transaction matching
         set the order matched based on market data source
         set the delay time of each order mathcer (unit:millisecond)
 
-        input: list of index in datalist
+        input: the first n element in datalist as market list
         '''
 
-        if type(marketlist) is not types.TupleType and type(marketlist) is not list:
-            marketlist = (marketlist,)
+        self.marketlist = self.datalist[:n]
 
-        self.marketlist = [self.datalist[i] for i in marketlist]
+    def setOrderMatcher(self,matcherlist):
+
+        if type(matcherlist) is not types.TupleType and type(matcherlist) is not list:
+            matcherlist = [matcherlist,]
 
         #set the corresponding order matcher
-        for marketdata in self.marketlist:
-            self.matcherlist[marketdata['name']] = self.orderMatchLibrary.orderMatcherLoader(marketdata['source'])
+        for element in matcherlist:
+            if element == 'forex_quote':
+                temp = va.simulator.ordermatcher.forex_quote_matcher()
+            else:
+                print 'no ' + element + '!'
+            self.matcher.append(temp)
 
     def setDelayTime(self,delayList):
         '''
         set the delay time for each mather
 
         input:
-            ['usdjpy-3','eurusd-2']
+            [3,2]
+            delay microseconds for each matcher
         '''
 
         if type(delayList) is not types.TupleType and type(delayList) is not list:
             delayList = (delayList,)
 
-        for element in delayList:
-            [name, delay] = element.split('-')
-            self.matcherlist[name].delay = int(delay)
+        for i in range(len(delayList)):
+            self.matcher[i].delay = delayList[i]
 
 
     def matchSymbol(self,pairs):
@@ -218,15 +221,19 @@ class simulator():
             symbol: list of symbol pair
                     ['ABC-0','DEF-1']
                     'ABC':symbol sent from trader
-                    0: index of symbol in the seld.datalist
+                    0: index of symbol in the self.market
         '''
-        #ipdb.set_trace()
 
         if type(pairs) is not types.TupleType and type(pairs) is not list:
             pairs = (pairs,)
         for pair in pairs:
             [symbol,index] = pair.split('-')
-            self.symbolpair[symbol] = self.datalist[int(index)]['name']
+            self.symbol_market_pair[symbol] = int(index)
+
+    def linksender(self):
+        for element in self.trader.sender:
+            element.linkTrader(self.trader)
+            element.linkSimulator(self)
 
 
     def setCycle(self, begindate, begintime, enddate, endtime):
@@ -290,7 +297,6 @@ class simulator():
         replace 1 cycle data into simulator for dispatch
         '''
 
-        #updating hdb and imdb
         for element in self.datalist:
             beginDate = cycle['beginDate'].strftime('%Y.%m.%d')
             endDate = cycle['endDate'].strftime('%Y.%m.%d')
@@ -298,19 +304,20 @@ class simulator():
             temp = self.dataloader.tickerload(symbol= element['name'], source = element['source'],begindate = beginDate, enddate = endDate)
             temp = temp[cycle['beginTime']:cycle['endTime']]
 
-            self.hdb[element['name']] = temp
-            #transfer into list of tuples
-            self.IMDB[element['name']] = list(temp.itertuples())
+            #updating hdb and imdb
+            self.hdb.append(temp)
+            self.IMDB.append(list(temp.itertuples()))
 
         #updating market data
-        for element in self.marketlist:
-            self.market[element['name']] = self.hdb[element['name']]
+        for j in range(len(self.marketlist)):
+            self.market.append(self.hdb[j])
+
 
     def updatePortfolio(self,trade):
         '''
         update portfolio based on new trades
         '''
-        ipdb.set_trace()
+        #ipdb.set_trace()
 
         time = trade['time']
         symbol = trade['symbol']
@@ -403,15 +410,13 @@ class simulator():
         '''
         callback function to receive order from trader
         '''
-        ipdb.set_trace()
+        #ipdb.set_trace()
 
         #translate order symbol into market symbol
-        order['symbol'] = self.symbolpair[order['symbol']]
-
-        temp = order['symbol']
+        index = self.symbol_market_pair[order['symbol']]
 
         #match trade
-        trade =  self.matcherlist[temp].match(order,self.market[temp])
+        trade =  self.matcher[index].match(order,self.market[index])
 
         if trade != 'NA':
             self.updatePortfolio(trade)
@@ -447,6 +452,40 @@ class simulator():
             #send out messages
             #self.broadcast()
 
+
+
+def init():
+    print 'demonstrating event system'
+
+    #1. create simulator
+    sim = simulator()
+
+    ####Initialization####
+
+    #2. set data list
+    sim.setdatalist(('forex_quote-usdjpy','forex_quote-eurusd'))
+
+    #3. set market list
+    #set the first 2 element in datalist as market list
+    sim.setMarketList(2)
+
+    #4. set order matcher for each market data
+    sim.setOrderMatcher(['forex_quote','forex_quote'])
+
+    #5. set delay time for each order matcher
+    sim.setDelayTime((2000,2000))
+
+    #6. match trade symbol and market data index
+    sim.matchSymbol(['usdjpy-0','eurusd-1'])
+
+    #7. set cycles
+    sim.setCycle('2013.08.01','03:00:00','2013.08.31','10:00:00')
+
+    #8. config portfolio
+    sim.setcapital(1000000.0)
+
+    return sim
+
 if __name__ == '__main__':
     print 'demonstrating event system'
 
@@ -459,14 +498,16 @@ if __name__ == '__main__':
     sim.setdatalist(('forex_quote-usdjpy','forex_quote-eurusd'))
 
     #3. set market list
+    #set the first 2 element in datalist as market list
+    sim.setMarketList(2)
+
     #4. set order matcher for each market data
-    #set the 1,2 element in datalist as market list
-    sim.setMarketList((0,1))
+    sim.setOrderMatcher(['forex_quote','forex_quote'])
 
     #5. set delay time for each order matcher
-    sim.setDelayTime(('usdjpy-2','eurusd-2'))
+    sim.setDelayTime((2000,2000))
 
-    #6. match trade symbol and market symbol
+    #6. match trade symbol and market data index
     sim.matchSymbol(['usdjpy-0','eurusd-1'])
 
     #7. set cycles
@@ -476,51 +517,44 @@ if __name__ == '__main__':
     sim.setcapital(1000000.0)
 
     #9. set traders
-    hawkesTrader = va.strategy.hawkes.newhawkes.hawkesTrader()
+    sim.setTrader('hawkes')
+    #alias name for hawkes trader
+    hawkesTrader = sim.trader
 
     #9.1 set trader name
     hawkesTrader.setname('hawkes_trader')
 
     #9.2 set symbols list
+    #set the symbol name and corresponding index
     hawkesTrader.setsymbols(['usdjpy','eurusd'])
-
-    #9.2 set trader timer
-    hawkesTrader.setsimtimer('2013.08.01 02:59:00',500)
 
     #9.3 set trader sender
     hawkesTrader.setsender(['sim','sim'])
 
     #9.4 link simulator and trader to sender
-    for item in hawkesTrader.sender:
-        try:
-            item.linkOrderProcessor(sim)
-            item.linkTrader(hawkesTrader)
-        except:
-            #if the sender is None, then pass
-            pass
+    sim.linksender()
 
-    #9.5 set trader data filter
+    #9.5 set trader timer
+    hawkesTrader.setsimtimer('2013.08.01 02:59:00',500)
+
+    #9.6 set trader data filter
     hawkesTrader.setfilter(['forex_quote','forex_quote'])
 
-    #9.6 link trader to filter
-    for item in hawkesTrader.filter:
-        item.linkTrader(hawkesTrader)
+    #9.7 link trader to filter
+    hawkesTrader.link_filter_trader()
 
-    #9.7 set fetch function of filter
+    #9.8 set fetch function of filter
     for item in hawkesTrader.filter:
         item.setFetcher('single_price')
 
-    #9.7 pass imdb to filter
-    hawkesTrader.linkimdb([sim.IMDB['usdjpy'],sim.IMDB['eurusd']])
+    #9.9 pass imdb to filter
+    hawkesTrader.linkimdb([sim.IMDB[0],sim.IMDB[1]])
 
-    #5. check status
-    #sim.statuscheck()
-
-    #6. example strategy
-    trader = va.strategy.hawkes.hawkes.hawkesTrader()
-    trader.setMode('sim','forexquote')
-    trader.setthreshold(3)
-    sim.subscribe(hooks = [trader.filter,])
+    #9.9 set parameters of trader
+    hawkesTrader.setthreshold(3)
+    hawkesTrader.setparams([0.2,0.2,0.1,0.6,0.6,0.1])
+    hawkesTrader.setStopTime('2013.08.01 06:00:00')
+    hawkesTrader.set
 
     sim.simulate()
 
