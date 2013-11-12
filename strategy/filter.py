@@ -87,7 +87,9 @@ class forex_quoteFilter(SimFilter):
         '''
 
         point = self.datasource[self.counter]
-        if point[4] != 0:
+        #for simulation, if trader's time is earlier
+        #than the next point arrival time, then do not return next point
+        if self.trader.now >= point[3]:
             self.counter += 1
             return {'time':point[0].to_datetime(),'price':(point[4]+point[5])/2.0}
         else:

@@ -443,16 +443,6 @@ class simulator():
             #load new data into simulator
             self.replaceData(cycle)
 
-            #set active time, include detailed date for active time
-            #self.updateActiveTime(date)
-
-            #process lower frequency data for simulation
-            #self.processDayFreqData()
-
-            #send out messages
-            #self.broadcast()
-
-
 
 def init():
     print 'demonstrating event system'
@@ -554,7 +544,8 @@ if __name__ == '__main__':
     hawkesTrader.setthreshold(3)
     hawkesTrader.setparams([0.2,0.2,0.1,0.6,0.6,0.1])
     hawkesTrader.setStopTime('2013.08.01 06:00:00')
-    hawkesTrader.set
+    hawkesTrader.setnumber(100)
+    hawkesTrader.setExitDelta(5)
 
     sim.simulate()
 

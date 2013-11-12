@@ -58,6 +58,7 @@ class hawkesTrader():
         self.exitdelta = dt.timedelta(0,5)
         #trader will not enter into new positions after DailyStopTime
         self.DailyStopTime = None
+        self.number = 0
 
         #store the pending exit
         self.PendingExit = []
@@ -157,6 +158,12 @@ class hawkesTrader():
         self.alpha = np.array(theta[2:6]).reshape(2,2)
         self.beta = np.array(theta[6:8]).reshape(2,1)
 
+    def setnumber(self,number):
+        '''
+        set the number of units to trade
+        '''
+        self.number = number
+
     def setthreshold(self, k):
         '''
         set the threshold for trigerring trades
@@ -214,7 +221,8 @@ class hawkesTrader():
         #Exit existing positions
         while self.now >= self.PendingExit[0]['time']:
             #Order(self.PendingExit)
-            print 'close positions'
+            temp_order = self.PendingExit[0]['direction']
+            self.sender.SendOrder(direction=temp_order['direction'],open=False,symbol=self.symbol[0],number=self.number)
             self.PendingExit.pop(0)
 
 
@@ -222,12 +230,11 @@ class hawkesTrader():
         if self.now < self.DailyStopTime:
             if self.stateUpdated == True:
                 if self.currentState['rate'] > self.threshold:
-                    self.PendingExit.append({'time':self.now + self.exitdelta,'type': -1})
-                    self.sender.SendOrder()
-                    print 'long open'
+                    self.PendingExit.append({'time':self.now + self.exitdelta,'direction': 'short'})
+                    self.sender[0].SendOrder(direction = 'long', open = True, symbol = self.symbols[0], number = self.number)
                 elif self.currentState['rate'] < 1/self.thresold:
-                    self.PendingExit.append({'time':self.now + self.exitdelta,'type': 1})
-                    print 'short open'
+                    self.PendingExit.append({'time':self.now + self.exitdelta,'direction':'long'})
+                    self.sender[0].SendOrder(direction = 'short', open = True, symbol = self.symbols[0], number = self.number)
                 self.stateUpdated = False
 
     def run(self):
@@ -260,7 +267,7 @@ class hawkesTrader():
 
 class simOrderSender(va.strategy.SimOrderSender.SimOrderSender):
 
-    def SendOrder(self,direction,open,symbol,orderType,number):
+    def SendOrder(self,direction,open,symbol,number):
         self.time = self.trader.now
         order = va.simulator.simulator.generateSimOrder(id = self.idcounter,
                                                         time = self.time,
