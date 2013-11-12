@@ -11,7 +11,7 @@ from dateutil.parser import parse
 import ipdb
 
 
-class hawkesTrader():
+class hawkesTrader(va.strategy.tradermanage.trader):
 
     '''
     object to implement hawkes trading strategy
@@ -19,7 +19,7 @@ class hawkesTrader():
 
     def __init__(self):
 
-        self.name = 'hawkes_trader'
+        va.strategy.tradermanage.trader.__init__()
 
         #initialize the state
         self.currentState = {'time':None,
@@ -28,22 +28,6 @@ class hawkesTrader():
                       'neg':None,
                       'rate':None}
         self.stateUpdated = False
-
-        #stored the symbols to be sent out by trader
-        self.symbols=[]
-
-        self.filter = []
-
-        #timer: function to get current time
-        self.timer = None
-
-        #now: object to store current time
-        self.now = None
-
-        #store order senders
-        self.sender = []
-
-        self.simIncrementTime = None
 
         #parameters
         self.a11 = 0.1
@@ -63,40 +47,6 @@ class hawkesTrader():
         #store the pending exit
         self.PendingExit = []
 
-    def setname(self,tradername):
-        self.name = tradername
-
-    def setsymbols(self,symbols):
-        '''
-        set symbols to be sent out by trader
-        '''
-        if type(symbols) is not types.TupleType and type(symbols) is not list:
-            self.symbols = [symbols,]
-        else:
-            self.symbols = symbols
-
-    def setsimtimer(self,initialtime,increment):
-        '''
-        timer used to update time for simulation mode
-
-        beginTime: str,the beginning time of simulation timer
-        increment: int,the smallest increment(in micro-second) of the timer
-        '''
-        self.timer = self.simtimer()
-        self.now = parse(initialtime)
-        self.simIncrementTime = dt.timedelta(0,0,increment)
-
-    def simtimer(self):
-        '''
-        simulation timer
-        '''
-        self.now += self.simIncrementTime
-
-    def realtimer(self):
-        '''
-        real timer
-        '''
-        self.now = dt.datetime.now()
 
     def setsender(self,senders):
         '''
@@ -111,67 +61,29 @@ class hawkesTrader():
                 temp = simOrderSender()
             self.sender.append(temp)
 
-    def setfilter(self,filters):
-        '''
-        set the filter for each arm of trader
-        filter name is the name of the table in DB
-        '''
-        if type(filters) is not types.TupleType and type(filters) is not list:
-            filters = [filters,]
 
-        for filter in filters:
-            temp = None
-            if filter == 'forex_quote':
-                temp = va.strategy.filter.forex_quoteFilter()
-            else:
-                pass
-            self.filter.append(temp)
-
-    def link_filter_trader(self):
-        '''
-        send trader object to each filter of the trader
-        '''
-
-        for item in self.filter:
-            item.linkTrader(self)
-
-    def linkimdb(self,imdblist):
-        '''
-        pass imdb to the trader filer
-        input [imdb0,imdb1]
-        imdb1,imdb2 matches self.filter[0] self.filter[1]
-        '''
-
-        imdblist = va.utils.utils.formlist(imdblist)
-
-        for i in range(len(imdblist)):
-            self.filter[i].setDataSource(imdblist[i])
-
-
-    def setparams(self,theta):
+    def setparams(self,params):
         '''
         settthe parameters of hawkes process
         otherwise, use default
         '''
 
+        #set theta
+        theta = params['theta']
+
         self.mu = np.array(theta[:2]).reshape(2,1)
         self.alpha = np.array(theta[2:6]).reshape(2,2)
         self.beta = np.array(theta[6:8]).reshape(2,1)
 
-    def setnumber(self,number):
-        '''
-        set the number of units to trade
-        '''
-        self.number = number
+        #set the number of units to trade
+        self.number = params['number']
 
-    def setthreshold(self, k):
-        '''
-        set the threshold for trigerring trades
-        '''
-        if k > 1:
-            self.threshold = k
-        else:
-            print 'K should be larger than 1'
+        #set the threshold for trigerring trades
+        self.threshold = params['k']
+
+        #set time in seconds to exit an opened positions
+        self.exitdelta = dt.timedelta(0, params['exitdelta'])
+
 
     def setStopTime(self, DailyStopTime):
         '''
@@ -180,12 +92,6 @@ class hawkesTrader():
         '''
 
         self.DailyStopTime = parse(DailyStopTime)
-
-    def setExitDelta(self, delta):
-        '''
-        set time in seconds to exit an opened positions
-        '''
-        self.exitdelta = dt.timedelta(0, delta)
 
     ############CORE-BEGIN############
 
@@ -236,27 +142,6 @@ class hawkesTrader():
                     self.PendingExit.append({'time':self.now + self.exitdelta,'direction':'long'})
                     self.sender[0].SendOrder(direction = 'short', open = True, symbol = self.symbols[0], number = self.number)
                 self.stateUpdated = False
-
-    def run(self):
-        '''
-        every call filter to fetch data from db
-        if new tick arrive, then update state
-
-        incoming point data structure
-        {'time':2013.11.08T09:00:00,
-        'price':99.9}
-
-        '''
-        while True:
-            #update time
-            self.timer()
-
-            #update state
-            self.updatestate()
-
-            #trade based on current state
-            self.logic()
-
 
     ############CORE-END############
 
