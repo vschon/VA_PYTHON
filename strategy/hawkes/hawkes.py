@@ -48,20 +48,6 @@ class hawkesTrader(va.strategy.tradermanage.trader):
         self.PendingExit = []
 
 
-    def setsender(self,senders):
-        '''
-        set the senders for each arm of the trader
-        '''
-
-        senders = va.utils.utils.formlist(senders)
-
-        for sender in senders:
-            temp = None
-            if sender == 'sim':
-                temp = simOrderSender()
-            self.sender.append(temp)
-
-
     def setparams(self,params):
         '''
         settthe parameters of hawkes process
@@ -84,14 +70,6 @@ class hawkesTrader(va.strategy.tradermanage.trader):
         #set time in seconds to exit an opened positions
         self.exitdelta = dt.timedelta(0, params['exitdelta'])
 
-
-    def setStopTime(self, DailyStopTime):
-        '''
-        set daily stop time
-        trader will not open new positions afte stop time
-        '''
-
-        self.DailyStopTime = parse(DailyStopTime)
 
     ############CORE-BEGIN############
 
@@ -144,24 +122,4 @@ class hawkesTrader(va.strategy.tradermanage.trader):
                 self.stateUpdated = False
 
     ############CORE-END############
-
-
-##############SENDER#############
-#Order manager for hawkes trader
-#Order manager is the interface between trader and broker/simulator
-
-class simOrderSender(va.strategy.SimOrderSender.SimOrderSender):
-
-    def SendOrder(self,direction,open,symbol,number):
-        self.time = self.trader.now
-        order = va.simulator.simulator.generateSimOrder(id = self.idcounter,
-                                                        time = self.time,
-                                                        direction = direction,
-                                                        open = open,
-                                                        orderType = 'MARKET',
-                                                        number = number)
-        self.simulator.OrderProcessor(order)
-
-
-
 

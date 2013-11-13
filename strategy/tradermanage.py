@@ -28,6 +28,11 @@ class trader(object):
 
         self.simIncrementTime = None
 
+        self.END = 1000000
+
+        #trader will not enter into new positions after DailyStopTime
+        self.DailyStopTime = None
+
     def setname(self,name):
         self.name = name
 
@@ -65,16 +70,16 @@ class trader(object):
 
     def setsender(self,senders):
         '''
+        senders:[func1,func2]
+        senders pass the api for each sender
         set sender for each symbol in the trader.symbols
-        TO BE IMPROVED
         '''
 
         senders = va.utils.utils.formlist(senders)
 
         for sender in senders:
             temp = None
-            if sender == 'sim':
-                temp = simOrderSender()
+            temp = OrderSender(self,sender)
             self.sender.append(temp)
 
     def setfilter(self,filters):
@@ -110,6 +115,14 @@ class trader(object):
         for i in range(len(imdblist)):
             self.filter[i].setDataSource(imdblist[i])
 
+    def setStopTime(self,DailyStopTime):
+        '''
+        set daily stop time
+        trader will not open new positions after stop time
+        '''
+        self.DailyStopTime = DailyStopTime
+
+
     def setparams(self,params):
         '''
         set the parameters of trader
@@ -134,17 +147,45 @@ class trader(object):
         '''
         working flow of updatestate() and logic()
         '''
-        while True:
+        for i in range(self.END):
             self.timer()
 
             self.updatestate()
 
-            self.logic
+            self.logic()
 
     ####CORE-END####
 
-class simOrderSender():
-    pass
+class OrderSender(object):
+
+    def __init__(self,trader,apireceiver):
+        self.trader = trader
+        self.apireceiver = apireceiver
+        self.SendOrder = None
+        self.orderID = 0
+
+
+        if isinstance(self.trader,va.strategy.hawkes.hawkes.hawkesTrader):
+            #for hawkes trader
+            if apireceiver.__name__ == 'SimOrderProcessor':
+                self.SendOrder = self.SendOrder_hawkes2sim
+
+
+    def SendOrder_hawkes2sim(self,direction,open,symbol,number):
+        '''
+        SendOrder from  hawkes trader to simulator
+        '''
+
+        time = self.trader.now
+        order = va.simulator.simulator.generateSimOrder(id = self.orderID,
+                                                        time = time,
+                                                        direction = direction,
+                                                        open = open,
+                                                        orderType = 'MARKET',
+                                                        number = number)
+        self.orderID += 1
+        self.apireceiver(order)
+
 
 class TraderLoader():
     '''
