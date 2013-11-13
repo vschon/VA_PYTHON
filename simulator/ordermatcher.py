@@ -22,6 +22,12 @@ class forex_quote_matcher():
         #delay in milliseconds
         self.delay = dt.timedelta(0,0,0)
 
+    def setdelay(self,delay):
+        '''
+        set transaction delay (in milliseconds)
+        '''
+        self.delay = dt.timedelta(0,0,delay)
+
     def fetchpoint(self,time,symbol,hdb):
         '''
         get point from hdb

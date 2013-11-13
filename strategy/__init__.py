@@ -1,11 +1,7 @@
 import hawkes
 import filter
-import tradermanage
-import SimOrderSender
-
+import trader
 
 reload(hawkes)
-reload(tradermanage)
 reload(filter)
-reload(SimOrderSender)
-
+reload(trader)

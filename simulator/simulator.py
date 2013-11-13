@@ -102,7 +102,7 @@ class simulator():
         #Store market data list
         self.marketlist = []
 
-        #store the match between trader symbol and market symbol
+        #store the match between trader symbol and market data index
         #key:symbol value:int - index of market data
         self.symbol_market_pair = defaultdict()
 
@@ -123,8 +123,11 @@ class simulator():
         self.cycles = []
 
 
-        self.traderLoader = va.strategy.tradermanage.TraderLoader()
+        self.traderLoader = va.strategy.trader.TraderLoader()
         self.trader = None
+        self.traderparams = None
+
+        self.dailyStopDelta = 0
 
         self.initialcapital = 1000000.0
 
@@ -210,7 +213,7 @@ class simulator():
             delayList = (delayList,)
 
         for i in range(len(delayList)):
-            self.matcher[i].delay = delayList[i]
+            self.matcher[i].setdelay(delayList[i])
 
 
     def matchSymbol(self,pairs):
@@ -273,6 +276,19 @@ class simulator():
 
         #Initializing
 
+    def setDailyStopDelta(self,delta):
+        '''
+        set the time trader do not enter new positions
+        '''
+
+        self.dailyStopDelta = dt.timedelta(0,delta)
+
+    def setSimTimerIncrement(self,increment):
+        '''
+        set the increment of sim timer of trader
+        '''
+        self.simTimerIncrement = increment
+
     def setcapital(self,value):
         '''
         set the initial value of simulation value
@@ -289,6 +305,9 @@ class simulator():
             self.trader = self.traderLoader.load(trader)
         else:
             print 'trader name not in trader library!'
+
+    def setTraderParams(self,params):
+        self.traderparams = params
 
 
     def replaceData(self,cycle):
@@ -405,7 +424,7 @@ class simulator():
         self.tradeIndex += 1
 
 
-    def OrderProcessor(self, order):
+    def simOrderProcessor(self, order):
 
         '''
         callback function to receive order from trader
@@ -443,109 +462,19 @@ class simulator():
             #load new data into simulator
             self.replaceData(cycle)
 
+            #pass imdb to filters of trader
+            self.trader.linkimdb([self.IMDB[0],self.IMDB[1]])
 
-def init():
-    print 'demonstrating event system'
+            #set new cycle begin time of trader
+            begintime = cycle['beginTime'] - dt.timedelta(0,180)
+            self.trader.setsimtimer(begintime,self.simTimerIncrement)
 
-    #1. create simulator
-    sim = simulator()
+            #set daily stop time
+            stoptime = cycle['endTime'] - self.dailyStopDelta
+            self.trader.setStopTime(stoptime)
 
-    ####Initialization####
+            #reset trader parameters
+            self.trader.setparams(self.traderparams)
 
-    #2. set data list
-    sim.setdatalist(('forex_quote-usdjpy','forex_quote-eurusd'))
-
-    #3. set market list
-    #set the first 2 element in datalist as market list
-    sim.setMarketList(2)
-
-    #4. set order matcher for each market data
-    sim.setOrderMatcher(['forex_quote','forex_quote'])
-
-    #5. set delay time for each order matcher
-    sim.setDelayTime((2000,2000))
-
-    #6. match trade symbol and market data index
-    sim.matchSymbol(['usdjpy-0','eurusd-1'])
-
-    #7. set cycles
-    sim.setCycle('2013.08.01','03:00:00','2013.08.31','10:00:00')
-
-    #8. config portfolio
-    sim.setcapital(1000000.0)
-
-    return sim
-
-if __name__ == '__main__':
-    print 'demonstrating event system'
-
-    #1. create simulator
-    sim = simulator()
-
-    ####Initialization####
-
-    #2. set data list
-    sim.setdatalist(('forex_quote-usdjpy','forex_quote-eurusd'))
-
-    #3. set market list
-    #set the first 2 element in datalist as market list
-    sim.setMarketList(2)
-
-    #4. set order matcher for each market data
-    sim.setOrderMatcher(['forex_quote','forex_quote'])
-
-    #5. set delay time for each order matcher
-    sim.setDelayTime((2000,2000))
-
-    #6. match trade symbol and market data index
-    sim.matchSymbol(['usdjpy-0','eurusd-1'])
-
-    #7. set cycles
-    sim.setCycle('2013.08.01','03:00:00','2013.08.31','10:00:00')
-
-    #8. config portfolio
-    sim.setcapital(1000000.0)
-
-    #9. set traders
-    sim.setTrader('hawkes')
-    #alias name for hawkes trader
-    hawkesTrader = sim.trader
-
-    #9.1 set trader name
-    hawkesTrader.setname('hawkes_trader')
-
-    #9.2 set symbols list
-    #set the symbol name and corresponding index
-    hawkesTrader.setsymbols(['usdjpy','eurusd'])
-
-    #9.3 set trader sender
-    hawkesTrader.setsender(['sim','sim'])
-
-    #9.4 link simulator and trader to sender
-    sim.linksender()
-
-    #9.5 set trader timer
-    hawkesTrader.setsimtimer('2013.08.01 02:59:00',500)
-
-    #9.6 set trader data filter
-    hawkesTrader.setfilter(['forex_quote','forex_quote'])
-
-    #9.7 link trader to filter
-    hawkesTrader.link_filter_trader()
-
-    #9.8 set fetch function of filter
-    for item in hawkesTrader.filter:
-        item.setFetcher('single_price')
-
-    #9.9 pass imdb to filter
-    hawkesTrader.linkimdb([sim.IMDB[0],sim.IMDB[1]])
-
-    #9.9 set parameters of trader
-    hawkesTrader.setthreshold(3)
-    hawkesTrader.setparams([0.2,0.2,0.1,0.6,0.6,0.1])
-    hawkesTrader.setStopTime('2013.08.01 06:00:00')
-    hawkesTrader.setnumber(100)
-    hawkesTrader.setExitDelta(5)
-
-    sim.simulate()
-
+            #execute algo
+            self.trader.run()

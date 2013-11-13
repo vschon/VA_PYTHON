@@ -50,15 +50,15 @@ class trader(object):
         increment:int, the smallest increment(in micro-seconds) of the timer
         '''
 
-        self.timer = self.simtimer()
-        self.now = parse(initialtime)
+        self.timer = self.simtimer
+        self.now = initialtime
         self.simIncrementTime = dt.timedelta(0,0,increment)
 
     def simtimer(self):
         '''
         simulation timer
         '''
-        self.now += self.simIncrementTime
+        self.now = self.now + self.simIncrementTime
 
     def realtimer(self):
         '''
@@ -71,6 +71,7 @@ class trader(object):
     def setsender(self,senders):
         '''
         senders:[func1,func2]
+        func1,2 are the callback function of brokers
         senders pass the api for each sender
         set sender for each symbol in the trader.symbols
         '''
@@ -90,17 +91,15 @@ class trader(object):
 
         filters = va.utils.utils.formlist(filters)
         for filter in filters:
+            filter_name,fetch_name = filter.split('-')
             temp = None
-            if filter == 'forex_quote':
+            if filter_name == 'forex_quote':
                 temp = va.strategy.filter.forex_quoteFilter()
+                temp.setFetcher(fetch_name)
             else:
                 pass
             self.filter.append(temp)
 
-    def link_filter_trader(self):
-        '''
-        send trader object to filter
-        '''
         for item in self.filter:
             item.linkTrader(self)
 
@@ -109,11 +108,14 @@ class trader(object):
         pass imdb to the trader filter
         input:[imdb0,imdb1]
         imdb0,1 matches self.filter[0] self.filter[1]
+
+        reset to counter to zeros imdb is updated
         '''
 
         imdblist = va.utils.utils.formlist(imdblist)
         for i in range(len(imdblist)):
             self.filter[i].setDataSource(imdblist[i])
+            self.filter[i].resetCounter()
 
     def setStopTime(self,DailyStopTime):
         '''
@@ -167,7 +169,7 @@ class OrderSender(object):
 
         if isinstance(self.trader,va.strategy.hawkes.hawkes.hawkesTrader):
             #for hawkes trader
-            if apireceiver.__name__ == 'SimOrderProcessor':
+            if apireceiver.__name__ == 'simOrderProcessor':
                 self.SendOrder = self.SendOrder_hawkes2sim
 
 
@@ -179,10 +181,12 @@ class OrderSender(object):
         time = self.trader.now
         order = va.simulator.simulator.generateSimOrder(id = self.orderID,
                                                         time = time,
+                                                        symbol = symbol,
                                                         direction = direction,
                                                         open = open,
                                                         orderType = 'MARKET',
                                                         number = number)
+        print order
         self.orderID += 1
         self.apireceiver(order)
 
@@ -197,7 +201,7 @@ class TraderLoader():
         Initializng traders
         '''
         self.traderlib = {}
-        self.traderlib['hawkes'] = va.strategy.hawkes.newhawkes.hawkesTrader()
+        self.traderlib['hawkes'] = va.strategy.hawkes.hawkes.hawkesTrader()
 
     def load(self,trader):
         if trader in self.traderlib.keys():

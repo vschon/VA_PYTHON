@@ -8,3 +8,6 @@ export PYTHONPATH=$PYTHONPATH:$VSCHON/VA_PYTHON
 
 export PYTHONPATH=$PYTHONPATH:$VSCHON/VD_KDB
 
+----------------------------
+please refer to instructions
+

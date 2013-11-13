@@ -14,7 +14,7 @@ class SimFilter(object):
     '''
 
     def __init__(self):
-        self.dataSource = None
+        self.datasource = []
         self.counter = 0
         self.fetch = None
         self.trader = None
@@ -32,9 +32,9 @@ class SimFilter(object):
         set fetch function of filter
         '''
         if fetch == 'single_price':
-            self.fetch = self.fetch_singlePrice()
+            self.fetch = self.fetch_singlePrice
         elif fetch == 'double_price':
-            self.fetch = self.fetch_doublePrice()
+            self.fetch = self.fetch_doublePrice
         elif fetch == 'fetch':
             if self.fetch == None:
                 print 'Warning, fetch() in the fileter is None'
@@ -43,7 +43,13 @@ class SimFilter(object):
         '''
         set the data source to be fetched
         '''
-        self.dataSource = datasource
+        self.datasource = datasource
+
+    def resetCounter(self):
+        '''
+        reset counter to zero
+        '''
+        self.counter = 0
 
     def fetch_singlePrice():
         '''
@@ -86,10 +92,9 @@ class forex_quoteFilter(SimFilter):
         return:{'time':XX, 'price':XX}
         '''
 
-        point = self.datasource[self.counter]
         #for simulation, if trader's time is earlier
         #than the next point arrival time, then do not return next point
-        if self.counter < len(self.dataSource):
+        if self.counter < len(self.datasource):
             #there are remaining data to be fetched
             point = self.datasource[self.counter]
             if self.trader.now >= point[3]:
