@@ -28,7 +28,7 @@ class trader(object):
 
         self.simIncrementTime = None
 
-        self.END = 1000000
+        self.END = 5000*10000
 
         #trader will not enter into new positions after DailyStopTime
         self.DailyStopTime = None
@@ -150,6 +150,7 @@ class trader(object):
         working flow of updatestate() and logic()
         '''
         for i in range(self.END):
+            #print i
             self.timer()
 
             self.updatestate()

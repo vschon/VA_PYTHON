@@ -27,7 +27,8 @@ def demo():
     sim.matchSymbol(['usdjpy-0','eurusd-1'])
 
     #7. set cycles
-    sim.setCycle('2013.08.01','03:00:00','2013.08.01','10:00:00')
+    sim.setCycle('2013.08.01','18:00:00','2013.08.05','05:00:00')
+    ####CHECK CYCLE AND REPLACE DATA
 
     #8. set daily stop time delta(in seconds)
     sim.setDailyStopDelta(300)

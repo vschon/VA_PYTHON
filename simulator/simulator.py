@@ -315,6 +315,11 @@ class simulator():
         '''
         replace 1 cycle data into simulator for dispatch
         '''
+        #ipdb.set_trace()
+
+        self.hdb = []
+        self.market = []
+        self.IMDB = []
 
         for element in self.datalist:
             beginDate = cycle['beginDate'].strftime('%Y.%m.%d')
@@ -458,6 +463,7 @@ class simulator():
             '''
             simulate for each cycle in cycles
             '''
+            ipdb.set_trace()
 
             #load new data into simulator
             self.replaceData(cycle)

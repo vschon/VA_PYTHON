@@ -92,8 +92,7 @@ class hawkesTrader(trader):
             if self.currentState['price'] == 0:
                 self.currentState['price'] = point['price']
                 self.currentState['time'] = point['time']
-                       #Only price change is processed
-            if point['price'] != self.currentState['price']:
+            elif point['price'] != self.currentState['price']:
                 delta = (point['time'] - self.currentState['time']).total_seconds()
                 mark = point['price'] - self.currentState['price']
 
@@ -109,6 +108,7 @@ class hawkesTrader(trader):
                 self.currentState['price'] = point['price']
 
                 self.stateUpdated = True
+            print self.currentState
 
 
     def logic(self):
@@ -126,12 +126,10 @@ class hawkesTrader(trader):
                     break
 
 
-
-
         #Enter new positions
         if self.now < self.DailyStopTime:
             if self.stateUpdated == True:
-                print self.currentState
+                #print self.currentState
                 if self.currentState['rate'] > self.threshold:
                     #ipdb.set_trace()
                     self.PendingExit.append({'time':self.now + self.exitdelta,'direction': 'short'})
