@@ -33,6 +33,10 @@ class trader(object):
         #trader will not enter into new positions after DailyStopTime
         self.DailyStopTime = None
 
+        self.reverse = False
+        self.dir_long = 'long'
+        self.dir_short = 'short'
+
     def setname(self,name):
         self.name = name
 
@@ -131,6 +135,15 @@ class trader(object):
         '''
         pass
 
+    def Reverse(self,reverse):
+        '''
+        if reverse = true, trader will sent reverse the direction of trading.
+        '''
+        self.reverse = reverse
+        if reverse == True:
+            self.dir_long = 'short'
+            self.dir_short = 'long'
+
 
     ####CORE-BEGIN####
     def updatestate(self):
@@ -187,7 +200,6 @@ class OrderSender(object):
                                                         open = open,
                                                         orderType = 'MARKET',
                                                         number = number)
-        print order
         self.orderID += 1
         self.apireceiver(order)
 

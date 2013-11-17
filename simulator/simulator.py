@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import VA_PYTHON as va
 import VD_KDB as vd
-from VA_PYTHON.datamanage.datahandler import Sender
 from collections import defaultdict
 import datetime as dt
 from time import strptime
@@ -326,6 +325,7 @@ class simulator():
             endDate = cycle['endDate'].strftime('%Y.%m.%d')
 
             temp = self.dataloader.tickerload(symbol= element['name'], source = element['source'],begindate = beginDate, enddate = endDate)
+            temp = temp.drop_duplicates(cols = 'time')
             temp = temp[cycle['beginTime']:cycle['endTime']]
 
             #updating hdb and imdb
@@ -343,6 +343,18 @@ class simulator():
         '''
         #ipdb.set_trace()
 
+        if self.tradeIndex%100000 == 0 and self.tradeIndex!=0:
+            portfolio_copy = self.portfolio[:100000].copy()
+            portfolio_copy['price'] = dt.datetime(1990,1,1)
+            portfolio_copy['symbol'] = 'VSCHON'
+            portfolio_copy['price'] = 0.0
+            portfolio_copy['number'] = 0.0
+            portfolio_copy['direction'] = 'long'
+            portfolio_copy['open'] = True
+            portfolio_copy['cash'] = 0.0
+            portfolio_copy['value'] = 0.0
+            self.portfolio = pd.concat([self.portfolio,portfolio_copy],ignore_index=True)
+
         time = trade['time']
         symbol = trade['symbol']
         price = trade['price']
@@ -358,9 +370,9 @@ class simulator():
 
         #if symbol not in portfolio, add threee cols - long,short,price
         if symbol not in self.portfolioSymbol:
-            self.portfolio[symbol + '-long'] = np.zeros(100000)
-            self.portfolio[symbol + '-short'] = np.zeros(100000)
-            self.portfolio[symbol + '-price'] = np.zeros(100000)
+            self.portfolio[symbol + '-long'] = np.zeros(self.portfolio.shape[0])
+            self.portfolio[symbol + '-short'] = np.zeros(self.portfolio.shape[0])
+            self.portfolio[symbol + '-price'] = np.zeros(self.portfolio.shape[0])
             self.portfolioSymbol.add(symbol)
 
         if self.tradeIndex == 0:
@@ -426,6 +438,8 @@ class simulator():
         self.portfolio['direction'][self.tradeIndex] = direction
         self.portfolio['open'][self.tradeIndex] = open
 
+        print trade
+        print self.portfolio['value'][self.tradeIndex]
         self.tradeIndex += 1
 
 
@@ -463,13 +477,13 @@ class simulator():
             '''
             simulate for each cycle in cycles
             '''
-            ipdb.set_trace()
 
             #load new data into simulator
             self.replaceData(cycle)
 
             #pass imdb to filters of trader
-            self.trader.linkimdb([self.IMDB[0],self.IMDB[1]])
+            self.trader.linkimdb(self.IMDB)
+            #self.trader.linkimdb([self.IMDB[0],self.IMDB[1]])
 
             #set new cycle begin time of trader
             begintime = cycle['beginTime'] - dt.timedelta(0,180)
@@ -484,3 +498,21 @@ class simulator():
 
             #execute algo
             self.trader.run()
+
+        print 'Simulation completed'
+
+    def portfolioAnalyzer(self):
+        '''
+        evaluate the performance of trader
+        '''
+        #sharp ratio
+        #maximum drawdown
+        #maximum loss days
+        #maximum winning days
+        #cumulative return
+        #average return
+        #std
+
+        #winning rate: win#/trade#
+
+

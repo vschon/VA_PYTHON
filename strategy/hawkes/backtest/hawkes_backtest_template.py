@@ -27,19 +27,19 @@ def demo():
     sim.matchSymbol(['usdjpy-0',])
 
     #7. set cycles
-    sim.setCycle('2013.01.01','23:00:00','2013.03.30','07:00:00')
+    sim.setCycle('2013.01.23','23:00:00','2013.01.31','07:00:00')
     ####CHECK CYCLE AND REPLACE DATA
 
     #8. set daily stop time delta(in seconds)
     sim.setDailyStopDelta(300)
 
     #9. set sim timer increment (in microseconds)
-    sim.setSimTimerIncrement(500)
+    sim.setSimTimerIncrement(1000)
 
 
     parameters = {'theta':[0.5,0.5,0.1,0.5,0.5,0.1,0.6,0.6],
                   'number':100,
-                  'k':3.5,
+                  'k':2,
                   'exitdelta':20}
 
     sim.setTraderParams(parameters)
@@ -48,10 +48,11 @@ def demo():
     sim.setcapital(1000000.0)
 
     #10. set trader
-    sim.setTrader('hawkes')
+    #sim.setTrader('hawkes')
+    sim.trader = va.strategy.hawkes.hawkes.hawkesTrader_filter()
 
     #10.1 set trader name
-    sim.trader.setname('hawkes')
+    sim.trader.setname('hawkes_filter')
 
     #10.2 set symbol list
     #the index of each symbol corresponds to the symbol index used by the trader

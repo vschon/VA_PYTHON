@@ -75,9 +75,6 @@ class hawkesTrader(trader):
         self.currentState['neg'] = self.mu2
         self.currentState['rate'] = self.mu1/self.mu2
 
-
-    ############CORE-BEGIN############
-
     def updatestate(self):
         '''
         get data from imdb
@@ -108,7 +105,6 @@ class hawkesTrader(trader):
                 self.currentState['price'] = point['price']
 
                 self.stateUpdated = True
-            print self.currentState
 
 
     def logic(self):
@@ -125,20 +121,60 @@ class hawkesTrader(trader):
                 if len(self.PendingExit) == 0:
                     break
 
-
         #Enter new positions
         if self.now < self.DailyStopTime:
             if self.stateUpdated == True:
                 #print self.currentState
                 if self.currentState['rate'] > self.threshold:
                     #ipdb.set_trace()
-                    self.PendingExit.append({'time':self.now + self.exitdelta,'direction': 'short'})
-                    self.sender[0].SendOrder(direction = 'long', open = True, symbol = self.symbols[0], number = self.number)
+                    self.PendingExit.append({'time':self.now + self.exitdelta,'direction': self.dir_short})
+                    self.sender[0].SendOrder(direction = self.dir_long, open = True, symbol = self.symbols[0], number = self.number)
                 elif self.currentState['rate'] < 1/self.threshold:
                     #ipdb.set_trace()
-                    self.PendingExit.append({'time':self.now + self.exitdelta,'direction':'long'})
-                    self.sender[0].SendOrder(direction = 'short', open = True, symbol = self.symbols[0], number = self.number)
+                    self.PendingExit.append({'time':self.now + self.exitdelta,'direction':self.dir_long})
+                    self.sender[0].SendOrder(direction = self.dir_short, open = True, symbol = self.symbols[0], number = self.number)
                 self.stateUpdated = False
 
-    ############CORE-END############
+class hawkesTrader_filter(hawkesTrader):
+
+    '''
+    add filter for updating state
+    '''
+    def updatestate(self):
+        '''
+        get data from imdb
+        update state
+        '''
+
+        point = self.filter[0].fetch()
+
+        if point != -1:
+            #point = -1 means no data fetched
+
+            if self.currentState['price'] == 0:
+                self.currentState['price'] = point['price']
+                self.currentState['time'] = point['time']
+            elif abs(point['price'] - self.currentState['price']) > 0.008:
+                #only consider significant movement
+                delta = (point['time'] - self.currentState['time']).total_seconds()
+                mark = point['price'] - self.currentState['price']
+
+                #ipdb.set_trace()
+                if delta>60:
+                    #if delta is too large, avoid overflow in exponential calculation
+                    self.currentState['pos'] = self.mu1
+                    self.currentState['neg'] = self.mu2
+                else:
+                    if mark > 0:
+                        self.currentState['pos'] = (self.currentState['pos'] - self.mu1)/math.exp(self.beta1*delta) + self.mu1 + self.a11
+                        self.currentState['neg'] = (self.currentState['neg'] - self.mu2)/math.exp(self.beta2*delta) + self.mu2 + self.a21
+                    else:
+                        self.currentState['pos'] = (self.currentState['pos'] - self.mu1)/math.exp(self.beta1*delta) + self.mu1 + self.a12
+                        self.currentState['neg'] = (self.currentState['neg'] - self.mu2)/math.exp(self.beta2*delta) + self.mu2 + self.a22
+                self.currentState['rate'] = self.currentState['pos']/self.currentState['neg']
+                self.currentState['time'] = point['time']
+                self.currentState['price'] = point['price']
+
+                self.stateUpdated = True
+
 
