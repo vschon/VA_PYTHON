@@ -326,7 +326,7 @@ class simulator():
 
             temp = self.dataloader.tickerload(symbol= element['name'], source = element['source'],begindate = beginDate, enddate = endDate)
             temp = temp.drop_duplicates(cols = 'time')
-            temp = temp[cycle['beginTime']:cycle['endTime']]
+            temp = temp[cycle['beginTime'].strftime('%Y-%m-%d %H:%M:%S'):cycle['endTime'].strftime('%Y-%m-%d %H:%M:%S')]
 
             #updating hdb and imdb
             self.hdb.append(temp)
@@ -505,6 +505,49 @@ class simulator():
         '''
         evaluate the performance of trader
         '''
+
+        '''
+        ALGO:
+            For general-daily analysis
+            cut un-filled entries
+            divide the portfolio into cycles
+            suppose each cycle corresponds to each day
+        '''
+
+        result = self.portfolio[self.portfolio['price'] != 0]
+        result.inex = result['time']
+        #cut the result based on cycles
+        divisions = [result[cycle['beginTime']:cycle['endTime']] for cycle in self.cycles]
+
+        #fill in cycle
+
+        summary_list = []
+        for i in range(len(self.cycles)):
+            temp = {}
+            element = divisions[i]
+            cycle = self.cycles[i]
+            if element.shape[0] == 0:
+                pass
+            else:
+                #set time
+                temp['time'] = cycle['beginDate']
+
+                #fill portfolio value for each date
+                temp['value'] = element['value'].ix[-1]
+            summary_list.append(temp)
+        summary_df = pd.DataFrame(summary_list)
+
+        return summary_df
+
+
+
+
+
+
+
+
+
+        #General analyzer
         #sharp ratio
         #maximum drawdown
         #maximum loss days
@@ -513,6 +556,7 @@ class simulator():
         #average return
         #std
 
+        #Per trade analyzer
         #winning rate: win#/trade#
 
 
