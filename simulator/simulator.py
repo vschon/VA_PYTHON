@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import math
 import VA_PYTHON as va
 import VD_KDB as vd
 from collections import defaultdict
@@ -501,7 +502,7 @@ class simulator():
 
         print 'Simulation completed'
 
-    def portfolioAnalyzer(self):
+    def portfolioAnalyzer(self,portfolio,cycles,initialValue):
         '''
         evaluate the performance of trader
         '''
@@ -514,47 +515,73 @@ class simulator():
             suppose each cycle corresponds to each day
         '''
 
-        result = self.portfolio[self.portfolio['price'] != 0]
-        result.inex = result['time']
+        result = portfolio[portfolio['price'] != 0]
+        result.index = result['time']
         #cut the result based on cycles
-        divisions = [result[cycle['beginTime']:cycle['endTime']] for cycle in self.cycles]
+        divisions = [result[va.utils.utils.datetime2str(cycle['beginTime']):va.utils.utils.datetime2str(cycle['endTime'])] for cycle in cycles]
 
-        #fill in cycle
-
+        #for per cycle value
         summary_list = []
-        for i in range(len(self.cycles)):
+        for i in range(len(cycles)):
             temp = {}
             element = divisions[i]
-            cycle = self.cycles[i]
+            cycle = cycles[i]
             if element.shape[0] == 0:
                 pass
             else:
                 #set time
-                temp['time'] = cycle['beginDate']
+                temp['beginTime'] = cycle['beginTime']
+                temp['beginDate'] = cycle['beginDate']
+                temp['endTime'] = cycle['endTime']
+                temp['endDate'] = cycle['endDate']
 
                 #fill portfolio value for each date
                 temp['value'] = element['value'].ix[-1]
             summary_list.append(temp)
-        summary_df = pd.DataFrame(summary_list)
+
+        summary_df = pd.DataFrame(summary_list,
+                                  columns = ['beginTime','value','beginDate','endTime','endDate'])
+
+
+        #drop empty entries
+        summary_df = summary_df.dropna()
+        value = summary_df['value'].values
+        aug_value = np.insert(value,0,initialValue)
+        daily_return = aug_value[1:] / aug_value[:-1] - 1
+
+        #cumulative return
+        cum_return = aug_value/aug_value[0] - 1
+        cum_return = np.delete(cum_return,0)
+
+        #sharpe ratio
+        avg_return = np.average(daily_return)
+        std_return = np.std(daily_return)
+        sharpe = math.sqrt(250) * avg_return / std_return
+
+        #drawdown and drawdown duration
+        drawdown = np.zeros(value.shape)
+        drawdownDuration = np.zeros(value.shape)
+        highwatermark = np.zeros(value.shape)
+
+        for t in range(value.shape[0]) :
+            highwatermark[t] = (max(highwatermark[t-1], cum_return[t]))
+            drawdown[t]= - (highwatermark[t]-cum_return[t])
+            drawdownDuration[t]= (0 if drawdown[t] == 0 else drawdownDuration[t-1]+1)
+
+        summary_df['daily_return'] = daily_return
+        summary_df['drawdown'] = drawdown
+        summary_df['drawdown_duration'] = drawdownDuration
+
+        maxdrawdown = np.argmin(drawdown)
+        maxdrawdown_duration = np.argmax(drawdownDuration)
+
+
+
 
         return summary_df
 
-
-
-
-
-
-
-
-
         #General analyzer
-        #sharp ratio
-        #maximum drawdown
-        #maximum loss days
         #maximum winning days
-        #cumulative return
-        #average return
-        #std
 
         #Per trade analyzer
         #winning rate: win#/trade#

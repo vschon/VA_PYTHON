@@ -12,3 +12,6 @@ def formlist(element):
         return [element,]
     else:
         return element
+
+def datetime2str(datetime):
+    return datetime.strftime('%Y-%m-%d %H:%M:%S')
